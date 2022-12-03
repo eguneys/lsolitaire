@@ -1,0 +1,22 @@
+{
+  "name": "lsolitaire",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/lsolitaire.js",
+  "scripts": {
+    "build": "esbuild ./src --bundle --outfile=dist/lsolitaire.js",
+    "lint": "tsc --emitDeclarationOnly --declarationDir dist",
+    "test": "vitest --run",
+    "test:watch": "vitest --watch",
+    "lint:watch": "tsc --noEmit --watch",
+    "validate": "pnpm test && pnpm build && pnpm lint"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "esbuild": "^0.15.16",
+    "typescript": "^4.9.3",
+    "vitest": "^0.25.3"
+  }
+}
