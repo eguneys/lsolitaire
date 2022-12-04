@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "dist/lsolitaire.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "esbuild ./src --bundle --outfile=dist/lsolitaire.js",
+    "build": "esbuild ./src --format=esm --bundle --outfile=dist/lsolitaire.js",
     "lint": "tsc --emitDeclarationOnly --declarationDir dist",
     "test": "vitest --run",
     "test:watch": "vitest --watch",
