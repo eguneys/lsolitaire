@@ -17,6 +17,10 @@ export const card_sort_key = (card: Card) => {
   return i_suit * 100 + i_rank
 }
 
+export class Cards {
+  static get deck() { return cards.slice(0) }
+}
+
 export class Stack {
 
   static get empty() { return new Stack([]) }
@@ -29,9 +33,18 @@ export class Stack {
     return StackPov.backs(this.cards.length)
   }
 
+  get clone() {
+    return new Stack(this.cards.slice(0))
+  }
+
   get fen() {
     return this.cards.join(' ')
   }
+
+  get length() {
+    return this.cards.length
+  }
+
 
   constructor(readonly cards: Array<Card>) {}
 

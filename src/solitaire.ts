@@ -61,6 +61,30 @@ export class StockPov {
   constructor(
     readonly stock: StackPov,
     readonly waste: Stack) {}
+
+  get can_hit() {
+    return this.stock.length > 0
+  }
+
+  get can_recycle() {
+    return this.stock.length === 0 && this.waste.length > 0
+  }
+
+
+  wait_hit() { }
+
+  wait_recycle() {}
+
+  hit(cards: Array<Card>) {
+    this.stock.remove_cards(cards.length)
+    this.waste.add_cards(cards)
+  }
+
+
+  recycle() {
+    let cards = this.waste.remove_cards(this.waste.length)
+    this.stock.add_cards(cards)
+  }
 }
 
 export class SolitairePov {
@@ -84,6 +108,30 @@ export class SolitairePov {
     readonly tableus: Array<TableuPov>) {
   }
 
+  get can_hit_stock() {
+    return this.stock.can_hit
+  }
+
+  get can_recycle() {
+    return this.stock.can_recycle
+  }
+
+  hit_stock(cards: Array<Card>) {
+    this.stock.hit(cards)
+  }
+
+  wait_hit_stock() {
+    this.stock.wait_hit()
+  }
+
+  recycle() {
+    this.stock.recycle()
+  }
+
+  wait_recycle() {
+    this.stock.wait_recycle()
+  }
+
 }
 
 export class Stock {
@@ -97,12 +145,24 @@ export class Stock {
   }
 
   get pov() {
-    return new StockPov(this.stock.pov, this.waste)
+    return new StockPov(this.stock.clone, this.waste.clone)
   }
 
   constructor(
     readonly stock: Stack,
     readonly waste: Stack) {}
+
+
+  hit() {
+    let cards = this.stock.remove_cards(3)
+    this.waste.add_cards(cards)
+    return cards
+  }
+
+  recycle() {
+    let cards = this.waste.remove_cards(this.waste.length)
+    this.stock.add_cards(cards)
+  }
 }
 
 export class Tableu {
@@ -115,7 +175,7 @@ export class Tableu {
   }
 
   get pov() {
-    return new TableuPov(this.backs.pov, this.fronts)
+    return new TableuPov(this.backs.pov, this.fronts.clone)
   }
 
   constructor(readonly backs: Stack,
@@ -138,6 +198,14 @@ export class Solitaire {
   get pov() {
     return new SolitairePov(this.stock.pov,
       this.tableus.map(_ => _.pov))
+  }
+
+  hit_stock() {
+    return this.stock.hit()
+  }
+
+  recycle() {
+    return this.stock.recycle()
   }
 
   constructor(
