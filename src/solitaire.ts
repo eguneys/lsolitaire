@@ -1,16 +1,7 @@
 import { Card, Stack } from './types'
 import { StackPov, CardHidden } from './types'
 
-export type DragSource = 'tableu'
-
-export class DragPov {
-  constructor(readonly cards: Array<Card>,
-    readonly source: DragSource) {}
-}
-
 export class TableuPov {
-
-  static drag_source: DragSource = 'tableu'
 
   static from_fen = (fen: string) => {
     let [backs, fronts] = fen.split(',')
@@ -25,20 +16,28 @@ export class TableuPov {
   constructor(readonly backs: StackPov,
     readonly fronts: Stack) {}
 
-  cut_cards(n: number) {
-    let cards = this.fronts.remove_cards(n)
-    return new DragPov(cards, TableuPov.drag_source)
+  remove_cards(n: number) {
+    return this.fronts.remove_cards(n)
   }
 
-  apply_drop_self_source(drag_pov: DragPov) {}
-
-  cancel_drop_self_source(drag_pov: DragPov) {
-    this.fronts.add_cards(drag_pov.cards)
+  can_drag(i: number) {
+    // TODO
+    return true
   }
 
-  flip_front_top(card: Card) {
-    this.backs.remove_cards(1)
-    this.fronts.add_cards([card])
+  can_drop(drag: DragPov) {
+    // TODO
+    return true
+  }
+
+
+  drop(drag: DragPov) {
+    this.fronts.add_cards(drag.cards)
+  }
+
+  wait_drop() {
+
+    // TODO
   }
 
 }
@@ -87,6 +86,17 @@ export class StockPov {
   }
 }
 
+export type DragPov = {
+  source: DragSource,
+  cards: Array<Card>
+}
+
+export type DragSource = ['tableu', number, number]
+
+export class DragSources {
+  static tableu = (tableu: number, i: number): DragSource => ['tableu', tableu, i]
+}
+
 export class SolitairePov {
 
   static from_fen = (fen: string) => {
@@ -102,6 +112,7 @@ export class SolitairePov {
       this.tableus.map(_ => _.fen).join('/')].join('//')
   }
 
+  dragging?: DragPov
 
   constructor(
     readonly stock: StockPov,
@@ -114,6 +125,35 @@ export class SolitairePov {
 
   get can_recycle() {
     return this.stock.can_recycle
+  }
+
+  can_drop_tableu(tableu: number) {
+    if (!this.dragging) {
+      return false
+    }
+    return this.tableus[tableu].can_drop(this.dragging)
+  }
+
+  drop_tableu(tableu: number) {
+    this.tableus[tableu].drop(this.dragging!)
+    this.dragging = undefined
+  }
+
+  wait_drop_tableu(tableu: number) {
+    this.tableus[tableu].wait_drop()
+  }
+
+  can_drag_tableu(tableu: number, i: number) {
+    return this.tableus[tableu].can_drag(i)
+  }
+
+  drag_tableu(tableu: number, i: number) {
+    let cards = this.tableus[tableu].remove_cards(i)
+
+    this.dragging = {
+      source: DragSources.tableu(tableu, i),
+      cards
+    }
   }
 
   hit_stock(cards: Array<Card>) {
@@ -178,6 +218,10 @@ export class Tableu {
     return new TableuPov(this.backs.pov, this.fronts.clone)
   }
 
+  add_cards(cards: Array<Card>) {
+    this.fronts.add_cards(cards)
+  }
+
   constructor(readonly backs: Stack,
     readonly fronts: Stack) {}
 
@@ -198,6 +242,10 @@ export class Solitaire {
   get pov() {
     return new SolitairePov(this.stock.pov,
       this.tableus.map(_ => _.pov))
+  }
+
+  drop_tableu(drag: DragPov, tableu: number) {
+    this.tableus[tableu].add_cards(drag.cards)
   }
 
   hit_stock() {
