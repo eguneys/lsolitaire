@@ -16,6 +16,10 @@ export class TableuPov {
   constructor(readonly backs: StackPov,
     readonly fronts: Stack) {}
 
+  add_cards(cards: Array<Card>) {
+    this.fronts.add_cards(cards)
+  }
+
   remove_cards(n: number) {
     return this.fronts.remove_cards(n)
   }
@@ -136,6 +140,22 @@ export class SolitairePov {
 
   drop_tableu(tableu: number) {
     this.tableus[tableu].drop(this.dragging!)
+    this.dragging = undefined
+  }
+
+  cancel_drag() {
+    if (!this.dragging) {
+      return
+    }
+
+    let [source, n, i] = this.dragging.source
+
+    switch (source) {
+      case 'tableu':
+        this.tableus[n].add_cards(this.dragging.cards)
+        break
+    }
+
     this.dragging = undefined
   }
 
