@@ -1,6 +1,11 @@
 import { Card, Stack } from './types'
 import { StackPov, CardHidden } from './types'
 
+export type FlipFront = {
+  drag_tableu: number,
+  front: Card
+}
+
 export class TableuPov {
 
   static from_fen = (fen: string) => {
@@ -22,6 +27,11 @@ export class TableuPov {
 
   remove_cards(n: number) {
     return this.fronts.remove_cards(n)
+  }
+
+  flip_front(card: Card) {
+    this.backs.remove_cards(1)
+    this.fronts.add_cards([card])
   }
 
   can_drag(i: number) {
@@ -143,6 +153,10 @@ export class SolitairePov {
     this.dragging = undefined
   }
 
+  flip_front(tableu: number, front: Card) {
+    this.tableus[tableu].flip_front(front)
+  }
+
   cancel_drag() {
     if (!this.dragging) {
       return
@@ -242,6 +256,21 @@ export class Tableu {
     this.fronts.add_cards(cards)
   }
 
+  remove_cards(n: number) {
+    this.fronts.remove_cards(n)
+  }
+
+  flip_front() {
+    if (this.fronts.length === 0) {
+      if (this.backs.length > 0) {
+        let card = this.backs.remove_cards(1)
+        this.fronts.add_cards(card)
+        return card[0]
+      }
+    }
+    return undefined
+  }
+
   constructor(readonly backs: Stack,
     readonly fronts: Stack) {}
 
@@ -266,6 +295,24 @@ export class Solitaire {
 
   drop_tableu(drag: DragPov, tableu: number) {
     this.tableus[tableu].add_cards(drag.cards)
+
+    let { source: _source, cards } = drag
+    let [source, n, i] = _source
+
+    switch (source) {
+      case 'tableu':
+        this.tableus[n].remove_cards(cards.length)
+        let front = this.tableus[n].flip_front()
+
+        if (front) {
+          return {
+            drag_tableu: n,
+            front
+          }
+        }
+        break
+    }
+    return undefined
   }
 
   hit_stock() {
