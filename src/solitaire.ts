@@ -60,20 +60,21 @@ export class StockPov {
 
 
   static from_fen = (fen: string) => {
-    let [stock, waste] = fen.split(',')
+    let [stock, waste, waste_hidden] = fen.split(',')
 
-    return new StockPov(StackPov.from_fen(stock), Stack.from_fen(waste))
+    return new StockPov(StackPov.from_fen(stock), Stack.from_fen(waste), Stack.from_fen(waste_hidden))
   }
 
   get fen() {
-    return `${this.stock.fen},${this.waste.fen}`
+    return `${this.stock.fen},${this.waste.fen},${this.waste_hidden.fen}`
   }
 
 
 
   constructor(
     readonly stock: StackPov,
-    readonly waste: Stack) {}
+    readonly waste: Stack,
+    readonly waste_hidden: Stack) {}
 
   get can_hit() {
     return this.stock.length > 0
@@ -90,12 +91,16 @@ export class StockPov {
 
   hit(cards: Array<Card>) {
     this.stock.remove_cards(cards.length)
+    let waste = this.waste.remove_cards(this.waste.length)
+    this.waste_hidden.add_cards(waste)
     this.waste.add_cards(cards)
   }
 
 
   recycle() {
-    let cards = this.waste.remove_cards(this.waste.length)
+    let waste = this.waste.remove_cards(this.waste.length)
+    this.waste_hidden.add_cards(waste)
+    let cards = this.waste_hidden.remove_cards(this.waste_hidden.length)
     this.stock.add_cards(cards)
   }
 }
@@ -211,9 +216,9 @@ export class SolitairePov {
 export class Stock {
 
   static from_fen = (fen: string) => {
-    let [stock, waste] = fen.split(',')
+    let [stock, waste, waste_hidden] = fen.split(',')
 
-    return new Stock(Stack.from_fen(stock), Stack.from_fen(waste))
+    return new Stock(Stack.from_fen(stock), Stack.from_fen(waste), Stack.from_fen(waste_hidden))
   }
 
 
@@ -221,31 +226,37 @@ export class Stock {
 
     let stock = Stack.take_n(cards, cards.length)
     let waste = Stack.empty
+    let waste_hidden = Stack.empty
 
-    return new Stock(stock, waste)
+    return new Stock(stock, waste,waste_hidden)
   }
 
   get fen() {
-    return `${this.stock.fen},${this.waste.fen}`
+    return `${this.stock.fen},${this.waste.fen},${this.waste_hidden.fen}`
   }
 
   get pov() {
-    return new StockPov(this.stock.clone, this.waste.clone)
+    return new StockPov(this.stock.clone, this.waste.clone, this.waste_hidden.clone)
   }
 
   constructor(
     readonly stock: Stack,
-    readonly waste: Stack) {}
+    readonly waste: Stack,
+    readonly waste_hidden: Stack) {}
 
 
   hit() {
+    let waste = this.waste.remove_cards(this.waste.length)
+    this.waste_hidden.add_cards(waste)
     let cards = this.stock.remove_cards(3)
     this.waste.add_cards(cards)
     return cards
   }
 
   recycle() {
-    let cards = this.waste.remove_cards(this.waste.length)
+    let waste = this.waste.remove_cards(this.waste.length)
+    this.waste_hidden.add_cards(waste)
+    let cards = this.waste_hidden.remove_cards(this.waste_hidden.length)
     this.stock.add_cards(cards)
   }
 }
