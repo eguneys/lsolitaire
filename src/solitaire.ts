@@ -210,12 +210,23 @@ export class SolitairePov {
 
 export class Stock {
 
+  static from_fen = (fen: string) => {
+    let [stock, waste] = fen.split(',')
+
+    return new Stock(Stack.from_fen(stock), Stack.from_fen(waste))
+  }
+
+
   static make = (cards: Array<Card>) => {
 
     let stock = Stack.take_n(cards, cards.length)
     let waste = Stack.empty
 
     return new Stock(stock, waste)
+  }
+
+  get fen() {
+    return `${this.stock.fen},${this.waste.fen}`
   }
 
   get pov() {
@@ -241,11 +252,22 @@ export class Stock {
 
 export class Tableu {
 
-  static make = (nb_backs: number, cards: Array<Card>) => {
+  static from_fen = (fen: string) => {
+    let [backs, fronts] = fen.split(',')
 
+    return new Tableu(Stack.from_fen(backs), Stack.from_fen(fronts))
+  }
+
+
+
+  static make = (nb_backs: number, cards: Array<Card>) => {
     let backs = Stack.take_n(cards, nb_backs)
     let fronts = Stack.take_n(cards, 1)
     return new Tableu(backs, fronts)
+  }
+
+  get fen() {
+    return `${this.backs.fen},${this.fronts.fen}`
   }
 
   get pov() {
@@ -280,12 +302,28 @@ export const n_seven = [...Array(7).keys()]
 export class Solitaire {
 
 
+  static from_fen = (fen: string) => {
+    let [stock, tableus] = fen.split('//')
+
+    return new Solitaire(Stock.from_fen(stock),
+      tableus.split('/').map(Tableu.from_fen))
+
+  }
+
+
+
   static make = (cards: Array<Card>) => {
 
     let tableus = n_seven.map(i => Tableu.make(i, cards)),
       stock = Stock.make(cards)
 
     return new Solitaire(stock, tableus)
+  }
+
+
+  get fen() {
+    return [this.stock.fen,
+      this.tableus.map(_ => _.fen).join('/')].join('//')
   }
 
   get pov() {

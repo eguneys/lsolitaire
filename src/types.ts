@@ -27,7 +27,7 @@ export class Stack {
 
   static take_n = (cards: Array<Card>, n: number) => new Stack(cards.splice(0, n))
 
-  static from_fen = (fen: string) => new Stack(fen.split(' '))
+  static from_fen = (fen: string) => new Stack(fen === '' ? [] : fen.split(' '))
 
   get pov() {
     return StackPov.backs(this.cards.length)
@@ -65,7 +65,7 @@ export const hidden_card = '??'
 
 
 export class StackPov {
-  static from_fen = (fen: string) => new StackPov(fen.split(' '))
+  static from_fen = (fen: string) => new StackPov(fen === '' ? [] : fen.split(' '))
 
   static backs = (nb: number) => new StackPov([...Array(nb).keys()].map(_ => hidden_card))
 
