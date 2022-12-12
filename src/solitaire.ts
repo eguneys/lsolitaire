@@ -1,6 +1,31 @@
 import { Card, Stack } from './types'
 import { StackPov, CardHidden } from './types'
 
+export enum TurningCards {
+  ThreeCards = 'threecards',
+  OneCard = 'onecard'
+}
+
+export enum TurningLimit {
+  NoLimit = 'nolimit',
+  ThreePasses = 'threepass',
+  OnePass = 'onepass'
+}
+
+export type Settings = {
+  cards: TurningCards,
+  limit: TurningLimit
+}
+
+const settings_fen = (settings: Settings) => `${settings.cards} ${settings.limit}`
+const fen_settings = (fen: string) => {
+  let [cards, limit] = fen.split(' ') as [TurningCards, TurningLimit]
+  return {
+    cards,
+    limit
+  }
+}
+
 export type FlipFront = {
   drag_tableu: number,
   front: Card
@@ -119,23 +144,44 @@ export class DragSources {
 export class SolitairePov {
 
   static from_fen = (fen: string) => {
-    let [stock, tableus] = fen.split('//')
+    let [settings, nb_recycles, stock, tableus] = fen.split('//')
 
-    return new SolitairePov(StockPov.from_fen(stock),
+    return new SolitairePov(fen_settings(settings),
+                            parseInt(nb_recycles),
+                            StockPov.from_fen(stock),
       tableus.split('/').map(TableuPov.from_fen))
 
   }
 
   get fen() {
-    return [this.stock.fen,
+    return [settings_fen(this.settings), 
+      this.nb_recycles,
+      this.stock.fen,
       this.tableus.map(_ => _.fen).join('/')].join('//')
   }
 
   dragging?: DragPov
 
+  nb_recycles: number
+
   constructor(
+    readonly settings: Settings,
+    nb_recycles: number,
     readonly stock: StockPov,
     readonly tableus: Array<TableuPov>) {
+      this.nb_recycles = nb_recycles
+  }
+
+  get max_recycles() {
+    switch (this.settings.limit) {
+      case TurningLimit.NoLimit:
+        return 9999
+      case TurningLimit.ThreePasses:
+        return 3
+      case TurningLimit.OnePass:
+        return 1
+    }
+    return 1
   }
 
   get can_hit_stock() {
@@ -143,7 +189,11 @@ export class SolitairePov {
   }
 
   get can_recycle() {
-    return this.stock.can_recycle
+    return this.nb_recycles < this.max_recycles && this.stock.can_recycle
+  }
+
+  get recycles_left() {
+    return this.max_recycles - this.nb_recycles
   }
 
   can_drop_tableu(tableu: number) {
@@ -204,6 +254,7 @@ export class SolitairePov {
   }
 
   recycle() {
+    this.nb_recycles++
     this.stock.recycle()
   }
 
@@ -245,10 +296,10 @@ export class Stock {
     readonly waste_hidden: Stack) {}
 
 
-  hit() {
+  hit(n: number) {
     let waste = this.waste.remove_cards(this.waste.length)
     this.waste_hidden.add_cards(waste)
-    let cards = this.stock.remove_cards(3)
+    let cards = this.stock.remove_cards(n)
     this.waste.add_cards(cards)
     return cards
   }
@@ -314,31 +365,41 @@ export class Solitaire {
 
 
   static from_fen = (fen: string) => {
-    let [stock, tableus] = fen.split('//')
+    let [settings, recycles, stock, tableus] = fen.split('//')
 
-    return new Solitaire(Stock.from_fen(stock),
+    return new Solitaire(fen_settings(settings),
+                         parseInt(recycles),
+                         Stock.from_fen(stock),
       tableus.split('/').map(Tableu.from_fen))
 
   }
 
 
 
-  static make = (cards: Array<Card>) => {
+  static make = (settings: Settings,
+                 cards: Array<Card>) => {
 
     let tableus = n_seven.map(i => Tableu.make(i, cards)),
       stock = Stock.make(cards)
 
-    return new Solitaire(stock, tableus)
+    return new Solitaire(settings,
+                         0,
+                         stock, tableus)
   }
 
 
   get fen() {
-    return [this.stock.fen,
+    return [
+      settings_fen(this.settings),
+      this.nb_recycles,
+      this.stock.fen,
       this.tableus.map(_ => _.fen).join('/')].join('//')
   }
 
   get pov() {
-    return new SolitairePov(this.stock.pov,
+    return new SolitairePov(this.settings,
+                            this.nb_recycles,
+                            this.stock.pov,
       this.tableus.map(_ => _.pov))
   }
 
@@ -365,14 +426,23 @@ export class Solitaire {
   }
 
   hit_stock() {
-    return this.stock.hit()
+    let n = this.settings.cards === TurningCards.ThreeCards ? 3 : 1
+    return this.stock.hit(n)
   }
 
   recycle() {
+    this.nb_recycles++
     return this.stock.recycle()
   }
 
+  nb_recycles: number
+
   constructor(
+    readonly settings: Settings,
+    nb_recycles: number,
     readonly stock: Stock,
-    readonly tableus: Array<Tableu>) {}
+    readonly tableus: Array<Tableu>) {
+    
+      this.nb_recycles = nb_recycles
+    }
 }
