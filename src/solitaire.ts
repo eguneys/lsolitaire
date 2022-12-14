@@ -1,6 +1,149 @@
 import { Card, Stack } from './types'
 import { StackPov, CardHidden } from './types'
 
+
+export enum GameStatus {
+  Created = 'created',
+  Started = 'started',
+  Incomplete = 'incomplete',
+  Completed = 'completed',
+  Won = 'won',
+}
+
+export class SolitaireScoresAndUndo {
+
+  static from_fen = (fen: string) => {
+    let [score, status, undos, solitaire] = fen.split('_sandu_')
+
+    return new SolitaireScoresAndUndo(
+      Solitaire.from_fen(solitaire),
+      status as GameStatus,
+      undos.split('_undo_').map(_ => SolitaireMove.from_fen(_)),
+        parseInt(score))
+
+  }
+
+  static make = (solitaire: Solitaire) => {
+    return new SolitaireScoresAndUndo(solitaire, GameStatus.Created, [], 0)
+  }
+
+  get fen() {
+    return [
+      this.score, 
+      this.status, 
+      this.undos.map(_ => _.fen).join('_undo_'),
+        this.solitaire.fen].join('_sandu_')
+  }
+
+  score: number
+  status: GameStatus
+
+  constructor(readonly solitaire: Solitaire,
+              status: GameStatus,
+              readonly undos: Array<SolitaireMove>,
+              score: number) {
+      this.solitaire = solitaire
+      this.score = score
+      this.status = status
+  }
+
+
+  apply<T extends SolitaireMove>(ctor: { new(): T }, data: any) {
+    let move = new ctor()._set_data(data)
+    let delta_score = move.apply(this.solitaire)
+    this.score += delta_score
+    this.undos.push(move)
+  }
+
+  can_undo() {
+    return this.undos.length > 0
+  }
+
+  undo() {
+    let undo = this.undos.pop()!
+
+    undo.undo(this.solitaire)
+    this.score += -80
+  }
+}
+
+export type SolitaireMoveType = { from_fen_args: (fen: string) => SolitaireMove }
+export abstract class SolitaireMove {
+
+  static Klasses: { [_: string]: SolitaireMoveType } = {}
+
+  static register = (_: SolitaireMoveType) => SolitaireMove.Klasses[_.constructor.name] = _
+
+  static from_fen = (fen: string) => {
+
+    let [klass, args] = fen.split(' ')
+
+    return SolitaireMove.Klasses[klass].from_fen_args(args)
+  }
+
+  constructor() {
+  }
+
+  _set_data(data: any) {
+    this._data = data
+    return this
+  }
+
+  get fen() {
+    return [this.constructor.name, this.fen_args].join(' ')
+  }
+
+  abstract fen_args: string
+  _data: any
+  abstract undo(after: Solitaire): void;
+  abstract apply(before: Solitaire): number;
+}
+
+export class HitStock extends SolitaireMove {
+
+  static from_fen_args = (_: string) => {
+    let res = new HitStock()
+
+    res.args = fen_undo_hit_args(_)
+    return res
+
+  }
+
+  get fen_args() {
+    return undo_hit_args_fen(this.args)
+  }
+
+  args!: UndoHitArgs
+
+  apply(before: Solitaire) {
+    this.args = before.hit_stock()
+    return 0
+  }
+
+  undo(after: Solitaire) {
+    after.hit_stock_undo(this.args)
+  }
+
+}
+SolitaireMove.register(HitStock)
+
+
+export type UndoHitArgs = {
+  cards: Array<Card>
+  waste: Array<Card>
+}
+const undo_hit_args_fen = (args: UndoHitArgs) => {
+  return `${args.cards.join(' ')}_undo_hit_args_${args.waste.join(' ')}`
+}
+const fen_undo_hit_args = (_: string) => {
+  let [cards, waste] = _.split('_undo_hit_args_')
+  return {
+    cards: cards.split(' '),
+    waste: waste.split(' ')
+  }
+}
+
+
 export enum TurningCards {
   ThreeCards = 'threecards',
   OneCard = 'onecard'
@@ -115,10 +258,18 @@ export class StockPov {
   wait_recycle() {}
 
   hit(cards: Array<Card>) {
-    this.stock.remove_cards(cards.length)
     let waste = this.waste.remove_cards(this.waste.length)
     this.waste_hidden.add_cards(waste)
+    this.stock.remove_cards(cards.length)
     this.waste.add_cards(cards)
+  }
+
+  hit_undo(args: UndoHitArgs) {
+    let { cards, waste } = args
+    this.waste.remove_cards(cards.length)
+    this.stock.add_cards(cards)
+    this.waste_hidden.remove_cards(waste.length)
+    this.waste.add_cards(waste)
   }
 
 
@@ -249,6 +400,10 @@ export class SolitairePov {
     this.stock.hit(cards)
   }
 
+  hit_stock_undo(args: UndoHitArgs) {
+    this.stock.hit_undo(args)
+  }
+
   wait_hit_stock() {
     this.stock.wait_hit()
   }
@@ -301,7 +456,15 @@ export class Stock {
     this.waste_hidden.add_cards(waste)
     let cards = this.stock.remove_cards(n)
     this.waste.add_cards(cards)
-    return cards
+    return { cards, waste }
+  }
+
+  hit_undo(undo_hit: UndoHitArgs) {
+    let { cards, waste } = undo_hit
+    let _waste_cards = this.waste.remove_cards(cards.length)
+    this.stock.add_cards(_waste_cards)
+    let hidden_cards = this.waste_hidden.remove_cards(waste.length)
+    this.waste.add_cards(hidden_cards)
   }
 
   recycle() {
@@ -428,6 +591,10 @@ export class Solitaire {
   hit_stock() {
     let n = this.settings.cards === TurningCards.ThreeCards ? 3 : 1
     return this.stock.hit(n)
+  }
+
+  hit_stock_undo(args: UndoHitArgs) {
+    this.stock.hit_undo(args)
   }
 
   recycle() {
