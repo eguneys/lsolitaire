@@ -10,6 +10,39 @@ export enum GameStatus {
   Won = 'won',
 }
 
+export class SolitaireScoresAndUndoPov {
+
+  score: number
+  status: GameStatus
+  nb_undo: number
+
+  constructor(readonly solitaire_pov: SolitairePov,
+    nb_undo: number,
+              status: GameStatus,
+              score: number) {
+    this.nb_undo = nb_undo
+      this.score = score
+      this.status = status
+  }
+
+
+  apply(delta_score: number) {
+    this.score += delta_score
+    this.nb_undo += 1
+  }
+
+  can_undo() {
+    return this.nb_undo > 0
+  }
+
+
+  undo(m: SolitaireMove) {
+    m.undo_pov(this.solitaire_pov)
+    this.score += -80
+  }
+
+}
+
 export class SolitaireScoresAndUndo {
 
   static from_fen = (fen: string) => {
@@ -18,6 +51,7 @@ export class SolitaireScoresAndUndo {
     return new SolitaireScoresAndUndo(
       Solitaire.from_fen(solitaire),
       status as GameStatus,
+      undos === '' ? [] :
       undos.split('_undo_').map(_ => SolitaireMove.from_fen(_)),
         parseInt(score))
 
@@ -35,6 +69,14 @@ export class SolitaireScoresAndUndo {
         this.solitaire.fen].join('_sandu_')
   }
 
+  get pov() {
+
+    return new SolitaireScoresAndUndoPov(this.solitaire.pov,
+      this.undos.length,
+      this.status,
+      this.score)
+  }
+
   score: number
   status: GameStatus
 
@@ -42,7 +84,6 @@ export class SolitaireScoresAndUndo {
               status: GameStatus,
               readonly undos: Array<SolitaireMove>,
               score: number) {
-      this.solitaire = solitaire
       this.score = score
       this.status = status
   }
@@ -67,12 +108,12 @@ export class SolitaireScoresAndUndo {
   }
 }
 
-export type SolitaireMoveType = { from_fen_args: (fen: string) => SolitaireMove }
+export type SolitaireMoveType = { name: string, from_fen_args: (fen: string) => SolitaireMove }
 export abstract class SolitaireMove {
 
   static Klasses: { [_: string]: SolitaireMoveType } = {}
 
-  static register = (_: SolitaireMoveType) => SolitaireMove.Klasses[_.constructor.name] = _
+  static register = (_: SolitaireMoveType) => SolitaireMove.Klasses[_.name] = _
 
   static from_fen = (fen: string) => {
 
@@ -97,6 +138,7 @@ export abstract class SolitaireMove {
   _data: any
   abstract undo(after: Solitaire): void;
   abstract apply(before: Solitaire): number;
+  abstract undo_pov(after: SolitairePov): void;
 }
 
 export class HitStock extends SolitaireMove {
@@ -121,6 +163,10 @@ export class HitStock extends SolitaireMove {
   }
 
   undo(after: Solitaire) {
+    after.hit_stock_undo(this.args)
+  }
+
+  undo_pov(after: SolitairePov) {
     after.hit_stock_undo(this.args)
   }
 
@@ -257,7 +303,8 @@ export class StockPov {
 
   wait_recycle() {}
 
-  hit(cards: Array<Card>) {
+  hit(args: UndoHitArgs) {
+    let { cards } = args
     let waste = this.waste.remove_cards(this.waste.length)
     this.waste_hidden.add_cards(waste)
     this.stock.remove_cards(cards.length)
@@ -396,8 +443,8 @@ export class SolitairePov {
     }
   }
 
-  hit_stock(cards: Array<Card>) {
-    this.stock.hit(cards)
+  hit_stock(args: UndoHitArgs) {
+    this.stock.hit(args)
   }
 
   hit_stock_undo(args: UndoHitArgs) {
