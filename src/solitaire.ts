@@ -150,6 +150,53 @@ export abstract class SolitaireMove {
   abstract undo_pov(after: SolitairePov): void;
 }
 
+
+export class DropTableu extends SolitaireMove {
+
+  static from_fen_args = (_: string) => {
+    let res = new DropTableu()
+    let [drag, tableu] = _.split('_args_')
+
+    return res
+
+  }
+
+  get fen_args() {
+    return [this.args.drag, this.args.tableu].join('_args_')
+  }
+
+  get data() {
+    return this._data as DropTableuArgs
+  }
+
+  args!: DropTableuArgs
+
+  apply(before: Solitaire) {
+
+    before.drop_tableu(this.data)
+    this.args = this.data
+    return 0
+  }
+
+  apply_pov(before: SolitairePov) {
+    before.drop_tableu(this.data)
+  }
+
+  undo(after: Solitaire) {
+    after.undo_drop_tableu(this.args)
+  }
+
+  undo_pov(after: SolitairePov) {
+    after.undo_drop_tableu(this.args)
+  }
+
+}
+
+export type DropTableuArgs = {
+  drag: DragPov,
+  tableu: number
+}
+
 export class Recycle extends SolitaireMove {
 
   static from_fen_args = (_: string) => {
@@ -466,9 +513,14 @@ export class SolitairePov {
     return this.tableus[tableu].can_drop(this.dragging)
   }
 
-  drop_tableu(tableu: number) {
+  drop_tableu(args: DropTableuArgs) {
+    let { tableu } = args
     this.tableus[tableu].drop(this.dragging!)
     this.dragging = undefined
+  }
+
+
+  undo_drop_tableu(args: DropTableuArgs) {
   }
 
   flip_front(tableu: number, front: Card) {
@@ -695,7 +747,9 @@ export class Solitaire {
       this.tableus.map(_ => _.pov))
   }
 
-  drop_tableu(drag: DragPov, tableu: number) {
+  drop_tableu(args: DropTableuArgs) {
+    let { drag, tableu } = args
+
     this.tableus[tableu].add_cards(drag.cards)
 
     let { source: _source, cards } = drag
@@ -715,6 +769,9 @@ export class Solitaire {
         break
     }
     return undefined
+  }
+
+  undo_drop_tableu(args: DropTableuArgs) {
   }
 
   hit_stock() {
