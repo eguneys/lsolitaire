@@ -1,7 +1,22 @@
 import { it, expect } from 'vitest'
-import { cards, Solitaire, SolitairePov, TurningCards, TurningLimit } from '../src'
+import { Stack } from '../src'
+//import { cards, Solitaire, SolitairePov, TurningCards, TurningLimit } from '../src'
 
 
+it('stack', () => {
+
+
+  let s = Stack.empty
+
+  s.add_cards(['d8', 'd6'])
+
+  let res = s.remove_cards(1)
+
+  expect(res).toStrictEqual(['d6'])
+
+})
+
+/*
 it('works', () => {
 
   let settings = { 
@@ -13,3 +28,4 @@ it('works', () => {
 
   expect(SolitairePov.from_fen(s.pov.fen).fen).toBe(s.pov.fen)
 })
+*/
