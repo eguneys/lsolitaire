@@ -26,12 +26,13 @@ export class SolitaireScoresAndUndoPov {
   }
 
 
-  apply(delta_score: number) {
-    this.score += delta_score
+  apply(m: SolitaireMove) {
+    m.apply_pov(this.solitaire_pov)
+    this.score += m.delta_score
     this.nb_undo += 1
   }
 
-  can_undo() {
+  get can_undo() {
     return this.nb_undo > 0
   }
 
@@ -39,6 +40,10 @@ export class SolitaireScoresAndUndoPov {
   undo(m: SolitaireMove) {
     m.undo_pov(this.solitaire_pov)
     this.score += -80
+    this.nb_undo -= 1
+  }
+
+  wait_undo() {
   }
 
 }
@@ -89,11 +94,12 @@ export class SolitaireScoresAndUndo {
   }
 
 
-  apply<T extends SolitaireMove>(ctor: { new(): T }, data: any) {
+  apply(ctor: SolitaireMoveType, data: any) {
     let move = new ctor()._set_data(data)
-    let delta_score = move.apply(this.solitaire)
-    this.score += delta_score
+    move.apply(this.solitaire)
+    this.score += move.delta_score
     this.undos.push(move)
+    return move
   }
 
   can_undo() {
@@ -105,10 +111,11 @@ export class SolitaireScoresAndUndo {
 
     undo.undo(this.solitaire)
     this.score += -80
+    return undo
   }
 }
 
-export type SolitaireMoveType = { name: string, from_fen_args: (fen: string) => SolitaireMove }
+export type SolitaireMoveType = { name: string, from_fen_args: (fen: string) => SolitaireMove, new (): SolitaireMove }
 export abstract class SolitaireMove {
 
   static Klasses: { [_: string]: SolitaireMoveType } = {}
@@ -117,7 +124,7 @@ export abstract class SolitaireMove {
 
   static from_fen = (fen: string) => {
 
-    let [klass, args] = fen.split(' ')
+    let [klass, args] = fen.split('_move_klass_')
 
     return SolitaireMove.Klasses[klass].from_fen_args(args)
   }
@@ -131,15 +138,61 @@ export abstract class SolitaireMove {
   }
 
   get fen() {
-    return [this.constructor.name, this.fen_args].join(' ')
+    return [this.constructor.name, this.fen_args].join('_move_klass_')
   }
 
+  delta_score: number = 0
   abstract fen_args: string
   _data: any
   abstract undo(after: Solitaire): void;
   abstract apply(before: Solitaire): number;
+  abstract apply_pov(after: SolitairePov): void;
   abstract undo_pov(after: SolitairePov): void;
 }
+
+export class Recycle extends SolitaireMove {
+
+  static from_fen_args = (_: string) => {
+    let res = new Recycle()
+    let [cards, waste] = _.split(' ')
+
+    res.args = { cards: parseInt(cards), waste: parseInt(waste) }
+    return res
+
+  }
+
+  get fen_args() {
+    return `${this.args.cards} ${this.args.waste}`
+  }
+
+  args!: UndoRecycleArgs
+
+  apply(before: Solitaire) {
+    this.args = before.recycle()
+    return 0
+  }
+
+  apply_pov(before: SolitairePov) {
+    before.recycle()
+  }
+
+  undo(after: Solitaire) {
+    after.recycle_undo(this.args)
+  }
+
+  undo_pov(after: SolitairePov) {
+    after.recycle_undo(this.args)
+  }
+
+}
+SolitaireMove.register(Recycle)
+
+
+export type UndoRecycleArgs = {
+  cards: number,
+  waste: number
+}
+
 
 export class HitStock extends SolitaireMove {
 
@@ -162,6 +215,10 @@ export class HitStock extends SolitaireMove {
     return 0
   }
 
+  apply_pov(before: SolitairePov) {
+    before.hit_stock(this.args)
+  }
+
   undo(after: Solitaire) {
     after.hit_stock_undo(this.args)
   }
@@ -179,10 +236,10 @@ export type UndoHitArgs = {
   waste: Array<Card>
 }
 const undo_hit_args_fen = (args: UndoHitArgs) => {
-  return `${args.cards.join(' ')}_undo_hit_args_${args.waste.join(' ')}`
+  return `${args.cards.join(' ')}_hit_args_${args.waste.join(' ')}`
 }
 const fen_undo_hit_args = (_: string) => {
-  let [cards, waste] = _.split('_undo_hit_args_')
+  let [cards, waste] = _.split('_hit_args_')
   return {
     cards: cards.split(' '),
     waste: waste.split(' ')
@@ -326,6 +383,14 @@ export class StockPov {
     let cards = this.waste_hidden.remove_cards(this.waste_hidden.length)
     this.stock.add_cards(cards)
   }
+
+  recycle_undo(args: UndoRecycleArgs) {
+    let { cards, waste } = args
+    let stock_to_waste_hidden_cards = this.stock.remove_cards(cards)
+    this.waste_hidden.add_cards(stock_to_waste_hidden_cards)
+    let to_waste_cards = this.waste_hidden.remove_cards(waste)
+    this.waste.add_cards(to_waste_cards)
+  }
 }
 
 export type DragPov = {
@@ -464,6 +529,11 @@ export class SolitairePov {
     this.stock.wait_recycle()
   }
 
+  recycle_undo(args: UndoRecycleArgs) {
+    this.nb_recycles--;
+    this.stock.recycle_undo(args)
+  }
+
 }
 
 export class Stock {
@@ -519,6 +589,18 @@ export class Stock {
     this.waste_hidden.add_cards(waste)
     let cards = this.waste_hidden.remove_cards(this.waste_hidden.length)
     this.stock.add_cards(cards)
+    return {
+      cards: cards.length,
+      waste: waste.length
+    }
+  }
+
+  recycle_undo(undo_recycle: UndoRecycleArgs) {
+    let { cards, waste } = undo_recycle
+    let stock_to_hidden = this.stock.remove_cards(cards)
+    this.waste_hidden.add_cards(stock_to_hidden)
+    let hidden_to_waste = this.waste_hidden.remove_cards(waste)
+    this.waste.add_cards(hidden_to_waste)
   }
 }
 
@@ -647,6 +729,11 @@ export class Solitaire {
   recycle() {
     this.nb_recycles++
     return this.stock.recycle()
+  }
+
+  recycle_undo(args: UndoRecycleArgs) {
+    this.nb_recycles--;
+    return this.stock.recycle_undo(args)
   }
 
   nb_recycles: number
