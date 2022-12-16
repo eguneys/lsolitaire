@@ -1,6 +1,7 @@
 export const suits = ['d', 'c', 'h', 's']
 export const ranks = ['A', 'K', 'Q', 'J', 'T', '9', '8', '7', '6', '5', '4', '3', '2']
 
+export const ranks_ace_through_king = ['A', '2', '3', '4', '5', '6', '7', '8', '8', 'T', 'J', 'Q', 'K']
 
 export type Suit = typeof suits[number]
 export type Rank = typeof ranks[number]

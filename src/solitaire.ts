@@ -1,5 +1,19 @@
+import { suits, Suit, ranks_ace_through_king } from './types'
 import { Card, Stack, StackPov } from './types'
 import { IGamePov, IGame, IMove } from './game'
+
+export const Scores = {
+  Recycle: -10,
+  HitStock: 0,
+  WasteToTableu: 10,
+  WasteToFoundation: 30,
+  TableuToFoundation: 20,
+  FoundationToTableu: -30,
+  Undo: -80,
+  TableuToTableuFlip: 10,
+  TableuToTableuNoFlip: 0,
+
+}
 
 export type TurningCards = 'threecards' | 'onecard'
 export type TurningLimit = 'nolimit' | 'onepass' | 'threepass'
@@ -36,6 +50,17 @@ export class Stock {
 
   get can_recycle() {
     return this.stock.length === 0
+  }
+
+  from_waste() {
+    let cards = this.stock.remove_cards(1)
+    return {
+      cards
+    }
+  }
+
+  undo_from_waste(cards: Array<Card>) {
+    this.stock.add_cards(cards)
   }
 
   hit(n: number) {
@@ -76,6 +101,7 @@ export class Stock {
     let hidden_to_waste = this.hidden.remove_cards(waste.length)
     this.waste.add_cards(hidden_to_waste)
   }
+
 }
 
 export class Tableu {
@@ -108,7 +134,7 @@ export class Tableu {
     return { cards }
   }
 
-  undo_from_tableu(i: number, res: TableuToTableuDataRes) {
+  undo_from_tableu(res: TableuToTableuDataRes) {
     if (res.flip) {
       let flip = this.front.remove_cards(1)
       this.back.add_cards(flip)
@@ -128,10 +154,47 @@ export class Tableu {
 }
 
 export class Foundation {
-  static make = () => {
-    return new Foundation(Stack.empty)
+  static make = (suit: Suit) => {
+    return new Foundation(suit, Stack.empty)
   }
-  constructor(readonly foundation: Stack) {}
+  constructor(readonly suit: Suit,
+    readonly foundation: Stack) {}
+  get next_top() {
+    let suit = this.suit
+    let rank = ranks_ace_through_king[this.foundation.length]
+    if (rank) {
+      return `${suit}${rank}`
+    }
+    return undefined
+  }
+
+  get can_from() {
+    return this.foundation.length > 0
+  }
+
+  can_to(cards: Array<Card>) {
+    let [top] = cards
+    return cards.length === 1 &&
+      top === this.next_top
+  }
+
+  to_foundation(cards: Array<Card>) {
+    this.foundation.add_cards(cards)
+  }
+
+  undo_to_foundation(cards: Array<Card>) {
+    this.foundation.remove_cards(cards.length)
+  }
+
+  from_foundation() {
+    return {
+      cards: this.foundation.remove_cards(1)
+    }
+  }
+
+  undo_from_foundation(cards: Array<Card>) {
+    this.foundation.add_cards(cards)
+  }
 }
 
 const n_seven = [...Array(7).keys()]
@@ -148,7 +211,7 @@ export class Solitaire implements IGame {
     return new Solitaire(settings,
                          stock,
                          tableus,
-                         n_four.map(i => Foundation.make()))
+                         suits.map(suit => Foundation.make(suit)))
 
   }
 
@@ -206,9 +269,66 @@ export class Solitaire implements IGame {
   undo_tableu_to_tableu(data: TableuToTableuData, res: TableuToTableuDataRes) {
     let { from, to, i } = data
     this.tableus[to].undo_to_tableu(res.cards)
-    this.tableus[from].undo_from_tableu(i, res)
+    this.tableus[from].undo_from_tableu(res)
   }
 
+  waste_to_tableu(data: WasteToTableuData) {
+    let { to } = data
+    let res = this.stock.from_waste()
+    this.tableus[to].to_tableu(res.cards)
+    return res
+  }
+
+  undo_waste_to_tableu(data: WasteToTableuData, res: WasteToTableuDataRes) {
+    let { to } = data
+
+    this.tableus[to].undo_to_tableu(res.cards)
+    this.stock.undo_from_waste(res.cards)
+  }
+
+  waste_to_foundation(data: WasteToFoundationData) {
+    let { to } = data
+    let res = this.stock.from_waste()
+    this.foundations[to].to_foundation(res.cards)
+    return res
+  }
+
+  undo_waste_to_foundation(data: WasteToFoundationData, res: WasteToFoundationDataRes) {
+    let { to } = data
+
+    this.foundations[to].undo_to_foundation(res.cards)
+    this.stock.undo_from_waste(res.cards)
+  }
+
+
+  tableu_to_foundation(data: TableuToFoundationData) {
+    let { from, to } = data
+    let res = this.tableus[from].from_tableu(1)
+    this.foundations[to].to_foundation(res.cards)
+    return res
+  }
+
+  undo_tableu_to_foundation(data: TableuToFoundationData, res: TableuToFoundationDataRes) {
+    let { from, to } = data
+
+    this.foundations[to].undo_to_foundation(res.cards)
+    this.tableus[from].undo_from_tableu(res)
+  }
+
+
+  foundation_to_tableu(data: FoundationToTableuData) {
+    let { from, to } = data
+    let res = this.foundations[from].from_foundation()
+    this.tableus[to].to_tableu(res.cards)
+    return res
+  }
+
+  undo_foundation_to_tableu(data: FoundationToTableuData, res: FoundationToTableuDataRes) {
+    let { from, to } = data
+
+    this.tableus[to].undo_to_tableu(res.cards)
+    this.foundations[from].undo_from_foundation(res.cards)
+  }
 }
 
 export type HitStockData = {
@@ -225,12 +345,12 @@ export class HitStock extends IMove<Solitaire> {
 
   apply() {
     this.data = this.solitaire.hit_stock()
-    return 0
+    return Scores.HitStock
   }
 
   undo() {
     this.solitaire.undo_hit_stock(this.data)
-    return -80
+    return Scores.Undo
   }
 
 }
@@ -249,12 +369,12 @@ export class Recycle extends IMove<Solitaire> {
 
   apply() {
     this.data = this.solitaire.recycle()
-    return -15
+    return Scores.Recycle
   }
 
   undo() {
     this.solitaire.undo_recycle(this.data)
-    return -80
+    return Scores.Undo
   }
 
 }
@@ -286,18 +406,145 @@ export class TableuToTableu extends IMove<Solitaire> {
   apply() {
     this.res = this.solitaire.tableu_to_tableu(this.data)
     if (this.res.flip) {
-      return 10
+      return Scores.TableuToTableuFlip
     }
-    return 0
+    return Scores.TableuToTableuNoFlip
   }
 
   undo() {
     this.solitaire.undo_tableu_to_tableu(this.data, this.res)
-    return -80
+    return Scores.Undo
   }
 
 }
 
+export type WasteToTableuData = {
+  to: number
+}
+export type WasteToTableuDataRes = {
+  cards: Array<Card>
+}
+
+export class WasteToTableu extends IMove<Solitaire> {
+
+  get solitaire() {
+    return this.game
+  }
+
+  get data() {
+    return this._data as WasteToTableuData
+  }
+
+  res!: WasteToTableuDataRes
+
+  apply() {
+    this.res = this.solitaire.waste_to_tableu(this.data)
+    return Scores.WasteToTableu
+  }
+
+  undo() {
+    this.solitaire.undo_waste_to_tableu(this.data, this.res)
+    return Scores.Undo
+  }
+
+}
+
+export type WasteToFoundationData = {
+  to: number
+}
+export type WasteToFoundationDataRes = {
+  cards: Array<Card>
+}
+
+export class WasteToFoundation extends IMove<Solitaire> {
+
+  get solitaire() {
+    return this.game
+  }
+
+  get data() {
+    return this._data as WasteToFoundationData
+  }
+
+  res!: WasteToFoundationDataRes
+
+  apply() {
+    this.res = this.solitaire.waste_to_foundation(this.data)
+    return Scores.WasteToFoundation
+  }
+
+  undo() {
+    this.solitaire.undo_waste_to_foundation(this.data, this.res)
+    return Scores.Undo
+  }
+}
+
+
+export type TableuToFoundationData = {
+  from: number,
+  to: number
+}
+export type TableuToFoundationDataRes = {
+  cards: Array<Card>
+}
+
+export class TableuToFoundation extends IMove<Solitaire> {
+
+  get solitaire() {
+    return this.game
+  }
+
+  get data() {
+    return this._data as TableuToFoundationData
+  }
+
+  res!: TableuToFoundationDataRes
+
+  apply() {
+    this.res = this.solitaire.tableu_to_foundation(this.data)
+    return Scores.TableuToFoundation
+  }
+
+  undo() {
+    this.solitaire.undo_tableu_to_foundation(this.data, this.res)
+    return Scores.Undo
+  }
+}
+
+
+
+export type FoundationToTableuData = {
+  from: number,
+  to: number
+}
+export type FoundationToTableuDataRes = {
+  cards: Array<Card>
+}
+
+
+
+export class FoundationToTableu extends IMove<Solitaire> {
+
+  get solitaire() {
+    return this.game
+  }
+
+  get data() {
+    return this._data as FoundationToTableuData
+  }
+
+  res!: FoundationToTableuDataRes
+
+  apply() {
+    this.res = this.solitaire.foundation_to_tableu(this.data)
+    return Scores.FoundationToTableu
+  }
+
+  undo() {
+    this.solitaire.undo_foundation_to_tableu(this.data, this.res)
+    return Scores.Undo
+  }
+}
 
 export class StockPov {
 
@@ -309,12 +556,29 @@ export class StockPov {
     return this.stock.length === 0
   }
 
+
+  get can_from_waste() {
+    return this.waste.length > 0
+  }
+
   constructor(
     readonly stock: StackPov,
     readonly waste: Stack,
     readonly hidden: StackPov) {}
 
 
+  from_waste() {
+    let cards = this.stock.remove_cards(1)
+    return {
+      cards
+    }
+  }
+
+  undo_from_waste(cards: Array<Card>) {
+    this.stock.add_cards(cards)
+  }
+
+ 
   hit(n: number) {
     let cards = this.stock.remove_cards(n)
     let waste = this.waste.remove_all()
@@ -350,6 +614,8 @@ export class StockPov {
     this.waste.add_cards(hidden_to_waste)
   }
 
+
+
 }
 
 export class TableuPov {
@@ -363,13 +629,6 @@ export class TableuPov {
 
     let cards = front.remove_cards(i)
     if (cards.length === i) {
-      if (front.length === 0) {
-        let [flip] = back.remove_cards(1)
-        return {
-          cards,
-          flip
-        }
-      }
       return {
         cards
       }
@@ -377,8 +636,7 @@ export class TableuPov {
     return undefined
   }
 
-  can_to(res: TableuToTableuDataRes) {
-    let { cards } = res
+  can_to(cards: Array<Card>) {
     let top = cards[0]
 
     if (!top) {
@@ -386,8 +644,62 @@ export class TableuPov {
     }
     return true
   }
+
+
+
+  from_tableu(i: number) {
+    let cards = this.front.remove_cards(i)
+    if (this.front.length === 0) {
+      let [flip] = this.back.remove_cards(1)
+      this.front.add_cards([flip])
+      return {
+        flip,
+        cards
+      }
+    }
+    return { cards }
+  }
+
+  undo_from_tableu(res: TableuToTableuDataRes) {
+    if (res.flip) {
+      let flip = this.front.remove_cards(1)
+      this.back.add_cards(flip)
+    }
+    this.front.add_cards(res.cards)
+  }
+
+
+  to_tableu(cards: Array<Card>) {
+    this.front.add_cards(cards)
+  }
+
+
+  undo_to_tableu(cards: Array<Card>) {
+    this.front.remove_cards(cards.length)
+  }
+
+
 }
 
+export type FromFoundationData = {
+  from: number
+}
+
+
+export type FromTableuData = {
+  from: number,
+  i: number
+}
+
+export type ToTableuData = {
+  to: number,
+  cards: Array<Card>
+}
+
+export type ToFoundationData = {
+  to: number,
+  cards: Array<Card>
+}
 
 export class SolitairePov implements IGamePov {
 
@@ -411,14 +723,34 @@ export class SolitairePov implements IGamePov {
     return this.has_recycle_limit && this.stock.can_recycle
   }
 
-  can_tableu_to_tableu(data: TableuToTableuData) {
-    let { from, to, i } = data
+  can_drag_tableu(data: FromTableuData) {
+    let { from, i } = data
     let can_from = this.tableus[from].can_from(i)
-    if (!can_from) {
-      return false
-    }
-    return this.tableus[to].can_to(can_from)
+    return can_from
   }
+
+  can_drop_tableu(data: ToTableuData) {
+
+    let { to, cards } = data
+    return this.tableus[to].can_to(cards)
+  }
+
+  can_drop_foundation(data: ToFoundationData) {
+    let { to, cards } = data
+    return this.foundations[to].can_to(cards)
+  }
+
+  can_drag_waste() {
+    return this.stock.can_from_waste
+  }
+
+  can_drag_foundation(data: FromFoundationData) {
+    let { from } = data
+    let can_from = this.foundations[from].can_from
+    return can_from
+
+  }
+
 
   hit_stock() {
     return this.stock.hit(this.hit_n)
@@ -445,5 +777,77 @@ export class SolitairePov implements IGamePov {
     readonly stock: StockPov,
     readonly tableus: Array<TableuPov>,
     readonly foundations: Array<Foundation>) {}
+
+
+  tableu_to_tableu(data: TableuToTableuData) {
+    let { from, to, i } = data
+    let res = this.tableus[from].from_tableu(i)
+    this.tableus[to].to_tableu(res.cards)
+    return res
+  }
+
+  undo_tableu_to_tableu(data: TableuToTableuData, res: TableuToTableuDataRes) {
+    let { from, to, i } = data
+    this.tableus[to].undo_to_tableu(res.cards)
+    this.tableus[from].undo_from_tableu(res)
+  }
+
+  waste_to_tableu(data: WasteToTableuData) {
+    let { to } = data
+    let res = this.stock.from_waste()
+    this.tableus[to].to_tableu(res.cards)
+    return res
+  }
+
+  undo_waste_to_tableu(data: WasteToTableuData, res: WasteToTableuDataRes) {
+    let { to } = data
+
+    this.tableus[to].undo_to_tableu(res.cards)
+    this.stock.undo_from_waste(res.cards)
+  }
+
+  waste_to_foundation(data: WasteToFoundationData) {
+    let { to } = data
+    let res = this.stock.from_waste()
+    this.foundations[to].to_foundation(res.cards)
+    return res
+  }
+
+  undo_waste_to_foundation(data: WasteToFoundationData, res: WasteToFoundationDataRes) {
+    let { to } = data
+
+    this.foundations[to].undo_to_foundation(res.cards)
+    this.stock.undo_from_waste(res.cards)
+  }
+
+
+  tableu_to_foundation(data: TableuToFoundationData) {
+    let { from, to } = data
+    let res = this.tableus[from].from_tableu(1)
+    this.foundations[to].to_foundation(res.cards)
+    return res
+  }
+
+  undo_tableu_to_foundation(data: TableuToFoundationData, res: TableuToFoundationDataRes) {
+    let { from, to } = data
+
+    this.foundations[to].undo_to_foundation(res.cards)
+    this.tableus[from].undo_from_tableu(res)
+  }
+
+
+  foundation_to_tableu(data: FoundationToTableuData) {
+    let { from, to } = data
+    let res = this.foundations[from].from_foundation()
+    this.tableus[to].to_tableu(res.cards)
+    return res
+  }
+
+  undo_foundation_to_tableu(data: FoundationToTableuData, res: FoundationToTableuDataRes) {
+    let { from, to } = data
+
+    this.tableus[to].undo_to_tableu(res.cards)
+    this.foundations[from].undo_from_foundation(res.cards)
+  }
 
 }
