@@ -1,11 +1,11 @@
 export interface IGamePov {
 }
 
-export interface IGame {
-  pov: IGamePov
+export interface IGame<T extends IGamePov> {
+  pov: T
 }
 
-export abstract class IMove<T extends IGame> {
+export abstract class IMove<P extends IGamePov, T extends IGame<P>> {
 
   constructor(readonly game: T) {}
 
@@ -19,16 +19,16 @@ export abstract class IMove<T extends IGame> {
   abstract undo(): number;
 }
 
-export type IMoveType<T extends IGame> = { new(...args: any): IMove<T> };
+export type IMoveType<P extends IGamePov, T extends IGame<P>> = { new(...args: any): IMove<P, T> };
 
 export type Stats = {
   score: number,
   nb_moves: number
 }
 
-export class Game<T extends IGame> {
+export class Game<P extends IGamePov, T extends IGame<P>> {
 
-  static make = <T extends IGame>(game: T) => {
+  static make = <P extends IGamePov, T extends IGame<P>>(game: T) => {
     return new Game(game,
                     {
                       score: 0,
@@ -61,9 +61,9 @@ export class Game<T extends IGame> {
   constructor(
     readonly game: T,
     readonly stats: Stats,
-    readonly history: Array<IMove<T>>) {}
+    readonly history: Array<IMove<P, T>>) {}
 
-  apply(move_ctor: IMoveType<T>, data: any) {
+  apply(move_ctor: IMoveType<P, T>, data: any) {
     let move = new move_ctor(this.game)._set_data(data)
     let points = move.apply()
     this.score += points

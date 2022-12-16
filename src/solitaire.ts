@@ -200,7 +200,7 @@ export class Foundation {
 const n_seven = [...Array(7).keys()]
 const n_four = [...Array(4).keys()]
 
-export class Solitaire implements IGame {
+export class Solitaire implements IGame<SolitairePov> {
 
   static make = (settings: Settings,
                  deck: Array<Card>) => {
@@ -336,7 +336,7 @@ export type HitStockData = {
   waste: Array<Card>
 }
 
-export class HitStock extends IMove<Solitaire> {
+export class HitStock extends IMove<SolitairePov, Solitaire> {
 
   get solitaire() {
     return this.game
@@ -360,7 +360,7 @@ export type RecycleData = {
   waste: Array<Card>
 }
 
-export class Recycle extends IMove<Solitaire> {
+export class Recycle extends IMove<SolitairePov, Solitaire> {
 
   get solitaire() {
     return this.game
@@ -391,7 +391,7 @@ export type TableuToTableuDataRes = {
   flip?: Card
 }
 
-export class TableuToTableu extends IMove<Solitaire> {
+export class TableuToTableu extends IMove<SolitairePov, Solitaire> {
 
   get solitaire() {
     return this.game
@@ -425,7 +425,7 @@ export type WasteToTableuDataRes = {
   cards: Array<Card>
 }
 
-export class WasteToTableu extends IMove<Solitaire> {
+export class WasteToTableu extends IMove<SolitairePov, Solitaire> {
 
   get solitaire() {
     return this.game
@@ -456,7 +456,7 @@ export type WasteToFoundationDataRes = {
   cards: Array<Card>
 }
 
-export class WasteToFoundation extends IMove<Solitaire> {
+export class WasteToFoundation extends IMove<SolitairePov, Solitaire> {
 
   get solitaire() {
     return this.game
@@ -488,7 +488,7 @@ export type TableuToFoundationDataRes = {
   cards: Array<Card>
 }
 
-export class TableuToFoundation extends IMove<Solitaire> {
+export class TableuToFoundation extends IMove<SolitairePov, Solitaire> {
 
   get solitaire() {
     return this.game
@@ -523,7 +523,7 @@ export type FoundationToTableuDataRes = {
 
 
 
-export class FoundationToTableu extends IMove<Solitaire> {
+export class FoundationToTableu extends IMove<SolitairePov, Solitaire> {
 
   get solitaire() {
     return this.game
