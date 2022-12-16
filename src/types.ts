@@ -56,6 +56,10 @@ export class Stack {
     return this.cards.splice(-n)
   }
 
+  remove_all() {
+    return this.remove_cards(this.cards.length)
+  }
+
 }
 
 export type CardHidden = '??'
@@ -73,6 +77,10 @@ export class StackPov {
     return this.cards.join(' ')
   }
 
+  get clone() {
+    return new StackPov(this.cards.slice(0))
+  }
+
   get length() {
     return this.cards.length
   }
@@ -85,6 +93,11 @@ export class StackPov {
 
   remove_cards(n: number) {
     return this.cards.splice(-n)
+  }
+
+
+  remove_all() {
+    return this.remove_cards(this.cards.length)
   }
 
 
