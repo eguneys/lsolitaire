@@ -30,8 +30,14 @@ export class Stack {
 
   static from_fen = (fen: string) => new Stack(fen === '' ? [] : fen.split(' '))
 
-  get pov() {
+
+  get hidden_pov() {
     return StackPov.backs(this.cards.length)
+  }
+
+
+  get pov() {
+    return new StackPov(this.cards.slice(0))
   }
 
   get clone() {
@@ -46,11 +52,20 @@ export class Stack {
     return this.cards.length
   }
 
+  get top_card() {
+    return this.cards[this.cards.length - 1]
+  }
 
   constructor(readonly cards: Array<Card>) {}
 
   add_cards(cards: Array<Card>) {
     this.cards.push(...cards)
+  }
+
+  unshift_cards(cards: Array<Card>) {
+    for (let i = cards.length - 1; i >= 0; i--) {
+      this.cards.push(cards[i])
+    }
   }
 
   remove_cards(n: number) {
@@ -87,6 +102,13 @@ export class StackPov {
   }
 
   constructor(readonly cards: Array<CardPov>) {}
+
+
+  unshift_cards(cards: Array<Card>) {
+    for (let i = cards.length - 1; i >= 0; i--) {
+      this.cards.push(cards[i])
+    }
+  }
 
   add_cards(cards: Array<CardPov>) {
     this.cards.push(...cards)

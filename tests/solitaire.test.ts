@@ -3,9 +3,27 @@ import { Stack, Cards } from '../src'
 import { Game, Solitaire } from '../src'
 import { HitStock } from '../src'
 
+
+let settings = { cards: 'threecards', limit: 'nolimit' }
+it('recycles', () => {
+
+  let s = Solitaire.make(settings, Cards.deck)
+
+  let first = s.hit_stock()
+  for (let i = 0; i < 7; i++) {
+    s.hit_stock()
+  }
+  console.log('here')
+  s.recycle()
+  let second = s.hit_stock()
+
+  expect(first).toStrictEqual(second)
+
+})
+
+
 it('hit stock', () => {
 
-  let settings = { cards: 'threecards', limit: 'nolimit' }
   let s = Solitaire.make(settings, Cards.deck)
   let g = Game.make(s)
 

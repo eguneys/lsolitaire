@@ -33,9 +33,9 @@ export class Stock {
 
   get pov() {
     return new StockPov(
-      this.stock.pov,
+      this.stock.hidden_pov,
       this.waste,
-      this.hidden.pov)
+      this.hidden.hidden_pov)
   }
 
   constructor(
@@ -67,7 +67,7 @@ export class Stock {
     let cards = this.stock.remove_cards(n)
     let waste = this.waste.remove_all()
 
-    this.hidden.add_cards(waste)
+    this.hidden.unshift_cards(waste)
     this.waste.add_cards(cards)
 
     return {
@@ -88,7 +88,7 @@ export class Stock {
   recycle() {
     let waste = this.waste.remove_all()
     this.hidden.add_cards(waste)
-    this.stock.add_cards(this.hidden.remove_all())
+    this.stock.unshift_cards(this.hidden.remove_all())
 
     return {
       waste
@@ -113,7 +113,7 @@ export class Tableu {
 
   get pov() {
     return new TableuPov(
-      this.back.pov,
+      this.back.hidden_pov,
       this.front)
   }
 
@@ -157,6 +157,13 @@ export class Foundation {
   static make = (suit: Suit) => {
     return new Foundation(suit, Stack.empty)
   }
+
+  get clone() {
+    return new Foundation(
+      this.suit,
+      this.foundation.clone)
+  }
+
   constructor(readonly suit: Suit,
     readonly foundation: Stack) {}
   get next_top() {
@@ -169,7 +176,13 @@ export class Foundation {
   }
 
   get can_from() {
-    return this.foundation.length > 0
+    let { top_card } = this.foundation
+    if (top_card) {
+      return {
+        cards: [top_card]
+      }
+    }
+    return undefined
   }
 
   can_to(cards: Array<Card>) {
@@ -197,8 +210,8 @@ export class Foundation {
   }
 }
 
-const n_seven = [...Array(7).keys()]
-const n_four = [...Array(4).keys()]
+export const n_seven = [...Array(7).keys()]
+export const n_four = [...Array(4).keys()]
 
 export class Solitaire implements IGame<SolitairePov> {
 
@@ -338,10 +351,15 @@ export type HitStockData = {
 
 export class HitStock extends IMove<SolitairePov, Solitaire> {
 
+
   get solitaire() {
     return this.game
   }
   data!: HitStockData
+
+  static can = (pov: SolitairePov) => {
+    return pov.can_hit
+  }
 
   apply() {
     this.data = this.solitaire.hit_stock()
@@ -352,6 +370,15 @@ export class HitStock extends IMove<SolitairePov, Solitaire> {
     this.solitaire.undo_hit_stock(this.data)
     return Scores.Undo
   }
+
+  static apply = (pov: SolitairePov) => {
+    pov.hit_stock()
+  }
+
+  undo_pov(pov: SolitairePov) {
+    pov.undo_hit_stock(this.data)
+  }
+
 
 }
 
@@ -367,6 +394,10 @@ export class Recycle extends IMove<SolitairePov, Solitaire> {
   }
   data!: RecycleData
 
+  static can = (pov: SolitairePov) => {
+    return pov.can_recycle
+  }
+
   apply() {
     this.data = this.solitaire.recycle()
     return Scores.Recycle
@@ -375,6 +406,14 @@ export class Recycle extends IMove<SolitairePov, Solitaire> {
   undo() {
     this.solitaire.undo_recycle(this.data)
     return Scores.Undo
+  }
+
+  static apply = (pov: SolitairePov) => {
+    pov.recycle()
+  }
+
+  undo_pov(pov: SolitairePov) {
+    pov.undo_recycle(this.data)
   }
 
 }
@@ -401,6 +440,16 @@ export class TableuToTableu extends IMove<SolitairePov, Solitaire> {
     return this._data as TableuToTableuData
   }
 
+  static can = (pov: SolitairePov, data: TableuToTableuData) => {
+    let from = data
+    let can_from = pov.can_drag_tableu(from)
+
+    if (!can_from) {
+      return false
+    }
+    return pov.can_drop_tableu({ ...data, ...can_from } )
+  }
+
   res!: TableuToTableuDataRes
 
   apply() {
@@ -415,6 +464,16 @@ export class TableuToTableu extends IMove<SolitairePov, Solitaire> {
     this.solitaire.undo_tableu_to_tableu(this.data, this.res)
     return Scores.Undo
   }
+
+
+  static apply = (pov: SolitairePov, data: any) => {
+    pov.tableu_to_tableu(data)
+  }
+
+  undo_pov(pov: SolitairePov) {
+    pov.undo_tableu_to_tableu(this.data, this.res)
+  }
+
 
 }
 
@@ -437,6 +496,16 @@ export class WasteToTableu extends IMove<SolitairePov, Solitaire> {
 
   res!: WasteToTableuDataRes
 
+  static can =(pov: SolitairePov, data: WasteToTableuData) => {
+    let from = data
+    const can_from = pov.can_drag_waste
+
+    if (!can_from) {
+      return false
+    }
+    return pov.can_drop_tableu({ ...data, ...can_from})
+  }
+
   apply() {
     this.res = this.solitaire.waste_to_tableu(this.data)
     return Scores.WasteToTableu
@@ -446,6 +515,18 @@ export class WasteToTableu extends IMove<SolitairePov, Solitaire> {
     this.solitaire.undo_waste_to_tableu(this.data, this.res)
     return Scores.Undo
   }
+
+
+  static apply = (pov: SolitairePov, data: any) => {
+    pov.waste_to_tableu(data)
+  }
+
+  undo_pov(pov: SolitairePov) {
+    pov.undo_waste_to_tableu(this.data, this.res)
+  }
+
+
+
 
 }
 
@@ -468,6 +549,19 @@ export class WasteToFoundation extends IMove<SolitairePov, Solitaire> {
 
   res!: WasteToFoundationDataRes
 
+
+  static can = (pov: SolitairePov, data: WasteToFoundationData) => {
+    let from = data
+    const can_from = pov.can_drag_waste
+
+    if (!can_from) {
+      return false
+    }
+    return pov.can_drop_foundation({ ...data, ...can_from})
+  }
+
+
+
   apply() {
     this.res = this.solitaire.waste_to_foundation(this.data)
     return Scores.WasteToFoundation
@@ -477,6 +571,18 @@ export class WasteToFoundation extends IMove<SolitairePov, Solitaire> {
     this.solitaire.undo_waste_to_foundation(this.data, this.res)
     return Scores.Undo
   }
+
+
+  static apply = (pov: SolitairePov, data: any)  => {
+    pov.waste_to_foundation(data)
+  }
+
+  undo_pov(pov: SolitairePov) {
+    pov.undo_waste_to_foundation(this.data, this.res)
+  }
+
+
+
 }
 
 
@@ -500,6 +606,16 @@ export class TableuToFoundation extends IMove<SolitairePov, Solitaire> {
 
   res!: TableuToFoundationDataRes
 
+  static can =(pov: SolitairePov, data: TableuToFoundationData) => {
+    let from = data
+    const can_from = pov.can_drag_tableu({ ...data, i: 1 })
+
+    if (!can_from) {
+      return false
+    }
+    return pov.can_drop_foundation({ ...data, ...can_from})
+  }
+
   apply() {
     this.res = this.solitaire.tableu_to_foundation(this.data)
     return Scores.TableuToFoundation
@@ -509,6 +625,18 @@ export class TableuToFoundation extends IMove<SolitairePov, Solitaire> {
     this.solitaire.undo_tableu_to_foundation(this.data, this.res)
     return Scores.Undo
   }
+
+
+  static apply = (pov: SolitairePov, data: any) => {
+    pov.tableu_to_foundation(data)
+  }
+
+  undo_pov(pov: SolitairePov) {
+    pov.undo_tableu_to_foundation(this.data, this.res)
+  }
+
+
+
 }
 
 
@@ -535,6 +663,17 @@ export class FoundationToTableu extends IMove<SolitairePov, Solitaire> {
 
   res!: FoundationToTableuDataRes
 
+  static can = (pov: SolitairePov, data: FoundationToTableuData) => {
+    let from = data
+    const can_from = pov.can_drag_foundation(data)
+
+    if (!can_from) {
+      return false
+    }
+    return pov.can_drop_tableu({ ...data, ...can_from})
+
+  }
+
   apply() {
     this.res = this.solitaire.foundation_to_tableu(this.data)
     return Scores.FoundationToTableu
@@ -544,6 +683,17 @@ export class FoundationToTableu extends IMove<SolitairePov, Solitaire> {
     this.solitaire.undo_foundation_to_tableu(this.data, this.res)
     return Scores.Undo
   }
+
+
+  static apply = (pov: SolitairePov, data: any) => {
+    pov.foundation_to_tableu(data)
+  }
+
+  undo_pov(pov: SolitairePov) {
+    pov.undo_foundation_to_tableu(this.data, this.res)
+  }
+
+
 }
 
 export class StockPov {
@@ -558,7 +708,20 @@ export class StockPov {
 
 
   get can_from_waste() {
-    return this.waste.length > 0
+    let { top_card } = this.waste
+    if (top_card) {
+      return {
+        cards: [top_card]
+      }
+    }
+    return undefined
+  }
+
+  get clone() {
+    return new StockPov(
+      this.stock.clone,
+      this.waste.clone,
+      this.hidden.clone)
   }
 
   constructor(
@@ -583,7 +746,7 @@ export class StockPov {
     let cards = this.stock.remove_cards(n)
     let waste = this.waste.remove_all()
 
-    this.hidden.add_cards(waste)
+    this.hidden.unshift_cards(waste)
     this.waste.add_cards(cards)
   }
 
@@ -600,7 +763,7 @@ export class StockPov {
   recycle() {
     let waste = this.waste.remove_all()
     this.hidden.add_cards(waste)
-    this.stock.add_cards(this.hidden.remove_all())
+    this.stock.unshift_cards(this.hidden.remove_all())
 
     return {
       waste
@@ -619,6 +782,12 @@ export class StockPov {
 }
 
 export class TableuPov {
+
+  get clone() {
+    return new TableuPov(
+      this.back.clone,
+      this.front.clone)
+  }
 
   constructor(readonly back: StackPov,
               readonly front: StackPov) {}
@@ -703,6 +872,14 @@ export type ToFoundationData = {
 
 export class SolitairePov implements IGamePov {
 
+  get clone(): SolitairePov {
+    return new SolitairePov(
+      this.settings,
+      this.stock.clone,
+      this.tableus.map(_ => _.clone),
+      this.foundations.map(_ => _.clone))
+  }
+
   get recycle_n() {
     return this.settings.limit === 'nolimit' ? 9999 : this.settings.limit === 'threepass' ? 3 : 1
   }
@@ -740,7 +917,7 @@ export class SolitairePov implements IGamePov {
     return this.foundations[to].can_to(cards)
   }
 
-  can_drag_waste() {
+  get can_drag_waste() {
     return this.stock.can_from_waste
   }
 
