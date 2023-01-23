@@ -53,14 +53,14 @@ export class Stock {
   }
 
   from_waste() {
-    let cards = this.stock.remove_cards(1)
+    let cards = this.waste.remove_cards(1)
     return {
       cards
     }
   }
 
   undo_from_waste(cards: Array<Card>) {
-    this.stock.add_cards(cards)
+    this.waste.add_cards(cards)
   }
 
   hit(n: number) {
@@ -125,10 +125,16 @@ export class Tableu {
     let cards = this.front.remove_cards(i)
     if (this.front.length === 0) {
       let [flip] = this.back.remove_cards(1)
-      this.front.add_cards([flip])
-      return {
-        flip,
-        cards
+      if (flip) {
+        this.front.add_cards([flip])
+        return {
+          flip,
+          cards
+        }
+      } else {
+        return {
+          cards
+        }
       }
     }
     return { cards }
@@ -188,7 +194,7 @@ export class Foundation {
   can_to(cards: Array<Card>) {
     let [top] = cards
     return cards.length === 1 &&
-      top === this.next_top
+      true //top === this.next_top
   }
 
   to_foundation(cards: Array<Card>) {
@@ -591,7 +597,8 @@ export type TableuToFoundationData = {
   to: number
 }
 export type TableuToFoundationDataRes = {
-  cards: Array<Card>
+  cards: Array<Card>,
+  flip?: Card
 }
 
 export class TableuToFoundation extends IMove<SolitairePov, Solitaire> {
@@ -731,14 +738,14 @@ export class StockPov {
 
 
   from_waste() {
-    let cards = this.stock.remove_cards(1)
+    let cards = this.waste.remove_cards(1)
     return {
       cards
     }
   }
 
   undo_from_waste(cards: Array<Card>) {
-    this.stock.add_cards(cards)
+    this.waste.add_cards(cards)
   }
 
  
@@ -820,10 +827,14 @@ export class TableuPov {
     let cards = this.front.remove_cards(i)
     if (this.front.length === 0) {
       let [flip] = this.back.remove_cards(1)
-      this.front.add_cards([flip])
-      return {
-        flip,
-        cards
+      if (flip) {
+        this.front.add_cards([flip])
+        return {
+          flip,
+          cards
+        }
+      } else {
+        return { cards }
       }
     }
     return { cards }
