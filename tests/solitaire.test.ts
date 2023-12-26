@@ -1,10 +1,10 @@
 import { it, expect } from 'vitest'
-import { Stack, Cards } from '../src'
+import { Stack, Cards, Settings, IGamePov, SolitairePov, IGame } from '../src'
 import { Game, Solitaire } from '../src'
 import { HitStock } from '../src'
 
 
-let settings = { cards: 'threecards', limit: 'nolimit' }
+let settings: Settings = { cards: 'threecards', limit: 'nolimit' }
 it('recycles', () => {
 
   let s = Solitaire.make(settings, Cards.deck)
@@ -13,7 +13,6 @@ it('recycles', () => {
   for (let i = 0; i < 7; i++) {
     s.hit_stock()
   }
-  console.log('here')
   s.recycle()
   let second = s.hit_stock()
 
@@ -25,7 +24,7 @@ it('recycles', () => {
 it('hit stock', () => {
 
   let s = Solitaire.make(settings, Cards.deck)
-  let g = Game.make(s)
+  let g = Game.make<SolitairePov, Solitaire>(s)
 
   expect(g.can_undo).toBe(false)
   expect(g.pov.score).toBe(0)
@@ -35,7 +34,7 @@ it('hit stock', () => {
   expect(g.pov.game.stock.stock.length).toBe(52 - 7 - 6 - 5 - 4 - 3 -2 -1)
   expect(g.pov.game.stock.waste.length).toBe(0)
 
-  g.apply(HitStock)
+  g.apply(HitStock, undefined)
 
   expect(g.can_undo).toBe(true)
   expect(g.pov.score).toBe(0)
@@ -62,14 +61,14 @@ it('hit stock', () => {
 
 it('pov', () => {
 
-  let settings = { cards: 'threecards', limit: 'nolimit' }
+  let settings: Settings = { cards: 'threecards', limit: 'nolimit' }
   let s = Solitaire.make(settings, Cards.deck)
-  let g = Game.make(s)
+  let g = Game.make<SolitairePov, Solitaire>(s)
 
 
-  let args = g.apply(HitStock)
+  let args = g.apply(HitStock, undefined)
 
-  g.pov.game.hit_stock(args.data)
+  g.pov.game.hit_stock()
 
   expect(g.pov.game.stock.stock.length).toBe(52 - 7 - 6 - 5 - 4 - 3 -2 - 1 - 3)
   expect(g.pov.game.stock.waste.length).toBe(3)
@@ -90,16 +89,11 @@ it('stack', () => {
 
 })
 
-/*
 it('works', () => {
 
-  let settings = { 
-    cards: TurningCards.ThreeCards, 
-    limit: TurningLimit.NoLimit
-  }
-  let s = Solitaire.make(settings, cards)
-  //console.log(s.pov.fen)
+  let settings: Settings = { cards: 'threecards', limit: 'nolimit' }
+  let s = Solitaire.make(settings, Cards.deck)
+  let g = Game.make<SolitairePov, Solitaire>(s)
 
-  expect(SolitairePov.from_fen(s.pov.fen).fen).toBe(s.pov.fen)
+  expect(Solitaire.from_fen(g.game.fen).fen).toBe(g.game.fen)
 })
-*/

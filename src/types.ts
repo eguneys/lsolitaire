@@ -22,14 +22,23 @@ export class Cards {
   static get deck() { return cards.slice(0) }
 }
 
+function card_stack_from_fen(fen: string) {
+  let res = []
+
+  for (let i = 0; i < fen.length; i+=2) {
+    res.push(`${fen[i]}${fen[i+1]}`)
+  }
+
+  return res
+}
+
 export class Stack {
 
   static get empty() { return new Stack([]) }
 
   static take_n = (cards: Array<Card>, n: number) => new Stack(cards.splice(0, n))
 
-  static from_fen = (fen: string) => new Stack(fen === '' ? [] : fen.split(' '))
-
+  static from_fen = (fen: string) => new Stack(card_stack_from_fen(fen))
 
   get hidden_pov() {
     return StackPov.backs(this.cards.length)
@@ -45,7 +54,7 @@ export class Stack {
   }
 
   get fen() {
-    return this.cards.join(' ')
+    return this.cards.join('')
   }
 
   get length() {

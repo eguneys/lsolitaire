@@ -23,12 +23,38 @@ export type Settings = {
   limit: TurningLimit
 }
 
+function settings_from_fen(fen: string): Settings {
+  let [cards, limit] = fen.split('$') as [TurningCards, TurningLimit]
+
+  return {
+    cards, limit
+  }
+}
+
+function settings_to_fen(settings: Settings) {
+  return [settings.cards, settings.limit].join('$')
+}
+
 export class Stock {
+
+  static from_fen = (fen: string) => {
+    let [_stock, _waste, _hidden] = fen.split('$')
+
+    let stock = Stack.from_fen(_stock)
+    let waste = Stack.from_fen(_waste)
+    let hidden = Stack.from_fen(_hidden)
+
+    return new Stock(stock, waste, hidden)
+  }
 
   static make = (deck: Array<Card>) => {
     return new Stock(Stack.take_n(deck, deck.length),
                      Stack.empty,
                      Stack.empty)
+  }
+
+  get fen() {
+    return [this.stock.fen, this.waste.fen, this.hidden.fen].join('$')
   }
 
   get pov() {
@@ -105,11 +131,21 @@ export class Stock {
 }
 
 export class Tableu {
+
+  static from_fen = (fen: string) => {
+    let [back, front] = fen.split('$')
+    return new Tableu(Stack.from_fen(back), Stack.from_fen(front))
+  }
+
+  
   static make = (deck: Array<Card>, n: number) => {
     return new Tableu(Stack.take_n(deck, n),
                       Stack.take_n(deck, 1))
   }
 
+  get fen() {
+    return [this.back.fen, this.front.fen].join('$')
+  }
 
   get pov() {
     return new TableuPov(
@@ -160,6 +196,18 @@ export class Tableu {
 }
 
 export class Foundation {
+
+  static from_fen = (fen: string) => {
+    let [suit, foundation] = fen.split('$')
+
+    return new Foundation(suit, Stack.from_fen(foundation))
+  }
+
+  get fen() {
+    return [this.suit, this.foundation.fen].join('$')
+  }
+
+
   static make = (suit: Suit) => {
     return new Foundation(suit, Stack.empty)
   }
@@ -220,6 +268,32 @@ export const n_seven = [...Array(7).keys()]
 export const n_four = [...Array(4).keys()]
 
 export class Solitaire implements IGame<SolitairePov> {
+
+  static from_fen = (fen: string) => {
+
+    let [_settings, _stock, _tableus, _suits] = fen.split(' ')
+
+    let settings = settings_from_fen(_settings)
+    let stock = Stock.from_fen(_stock)
+    let tableus = _tableus.split('/').map(tableu => Tableu.from_fen(tableu))
+    let suits = _suits.split('/').map(suit => Foundation.from_fen(suit))
+
+    return new Solitaire(settings,
+      stock,
+      tableus,
+      suits)
+  }
+
+  get fen() {
+
+    let settings = settings_to_fen(this.settings)
+    let stock = this.stock.fen
+    let tableus = this.tableus.map(_ => _.fen).join('/')
+    let suits = this.foundations.map(_ => _.fen).join('/')
+
+    return [settings, stock, tableus, suits].join(' ')
+  }
+
 
   static make = (settings: Settings,
                  deck: Array<Card>) => {
