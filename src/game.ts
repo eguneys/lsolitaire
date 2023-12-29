@@ -1,5 +1,6 @@
 export interface IGamePov {
   clone: IGamePov
+  finalize_apply_pov(_: IMove<this, IGame<this>>): void
 }
 
 export interface IGame<T extends IGamePov> {
@@ -99,6 +100,12 @@ export class Game<P extends IGamePov, T extends IGame<P>> {
 
 
 export class GamePov<P extends IGamePov, T extends IGame<P>> {
+
+
+  finalize_apply_pov(_: IMove<P, T>) {
+    this.game.finalize_apply_pov(_)
+  }
+
 
   get clone() {
     let game: P = this.game.clone as P

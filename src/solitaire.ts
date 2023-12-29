@@ -1,4 +1,4 @@
-import { suits, Suit, ranks_ace_through_king } from './types'
+import { suits, Suit, ranks_ace_through_king, is_red_black, is_king, is_ace } from './types'
 import { Card, Stack, StackPov } from './types'
 import { IGamePov, IGame, IMove } from './game'
 
@@ -198,35 +198,36 @@ export class Tableu {
 export class Foundation {
 
   static from_fen = (fen: string) => {
-    let [suit, foundation] = fen.split('$')
+    let foundation = fen
 
-    return new Foundation(suit, Stack.from_fen(foundation))
+    return new Foundation(Stack.from_fen(foundation))
   }
 
   get fen() {
-    return [this.suit, this.foundation.fen].join('$')
+    return this.foundation.fen
   }
 
 
-  static make = (suit: Suit) => {
-    return new Foundation(suit, Stack.empty)
+  static make = () => {
+    return new Foundation(Stack.empty)
   }
 
   get clone() {
-    return new Foundation(
-      this.suit,
-      this.foundation.clone)
+    return new Foundation(this.foundation.clone)
   }
 
-  constructor(readonly suit: Suit,
-    readonly foundation: Stack) {}
+  get suit() {
+    return this.foundation.top_card?.[0]
+  }
+
+  constructor(readonly foundation: Stack) {}
   get next_top() {
+    if (!this.suit) {
+      return undefined
+    }
     let suit = this.suit
     let rank = ranks_ace_through_king[this.foundation.length]
-    if (rank) {
-      return `${suit}${rank}`
-    }
-    return undefined
+    return `${suit}${rank}`
   }
 
   get can_from() {
@@ -242,7 +243,7 @@ export class Foundation {
   can_to(cards: Array<Card>) {
     let [top] = cards
     return cards.length === 1 &&
-      true //top === this.next_top
+      (this.next_top ? top === this.next_top : is_ace(top))
   }
 
   to_foundation(cards: Array<Card>) {
@@ -271,14 +272,16 @@ export class Solitaire implements IGame<SolitairePov> {
 
   static from_fen = (fen: string) => {
 
-    let [_settings, _stock, _tableus, _suits] = fen.split(' ')
+    let [_settings, _nb_recycles, _stock, _tableus, _suits] = fen.split(' ')
 
     let settings = settings_from_fen(_settings)
+    let nb_recycles = parseInt(_nb_recycles)
     let stock = Stock.from_fen(_stock)
     let tableus = _tableus.split('/').map(tableu => Tableu.from_fen(tableu))
     let suits = _suits.split('/').map(suit => Foundation.from_fen(suit))
 
     return new Solitaire(settings,
+      nb_recycles,
       stock,
       tableus,
       suits)
@@ -290,8 +293,9 @@ export class Solitaire implements IGame<SolitairePov> {
     let stock = this.stock.fen
     let tableus = this.tableus.map(_ => _.fen).join('/')
     let suits = this.foundations.map(_ => _.fen).join('/')
+    let nb_recycles = this.nb_recycles
 
-    return [settings, stock, tableus, suits].join(' ')
+    return [settings, nb_recycles, stock, tableus, suits].join(' ')
   }
 
 
@@ -300,11 +304,13 @@ export class Solitaire implements IGame<SolitairePov> {
 
     let tableus = n_seven.map(i => Tableu.make(deck, i))
     let stock = Stock.make(deck)
+    let nb_recycles = 0
 
     return new Solitaire(settings,
+                         nb_recycles,
                          stock,
                          tableus,
-                         suits.map(suit => Foundation.make(suit)))
+                         suits.map(suit => Foundation.make()))
 
   }
 
@@ -316,6 +322,7 @@ export class Solitaire implements IGame<SolitairePov> {
 
     return new SolitairePov(
       this.settings,
+      this.nb_recycles,
       this.stock.pov,
       this.tableus.map(_ => _.pov),
       this.foundations)
@@ -323,17 +330,28 @@ export class Solitaire implements IGame<SolitairePov> {
  
   constructor(
     readonly settings: Settings,
+    public nb_recycles: number,
     readonly stock: Stock,
     readonly tableus: Array<Tableu>,
     readonly foundations: Array<Foundation>) {}
+
+  get recycle_n() {
+    return this.settings.limit === 'nolimit' ? 9999 : this.settings.limit === 'threepass' ? 3 : 1
+  }
 
   get can_hit() {
     return this.stock.can_hit
   }
 
   get can_recycle() {
-    return this.stock.can_recycle
+    return this.has_recycle_limit && this.stock.can_recycle
   }
+
+  get has_recycle_limit() {
+    return this.recycle_n - this.nb_recycles > 0
+  }
+
+
 
   hit_stock() {
     return this.stock.hit(this.hit_n)
@@ -345,10 +363,12 @@ export class Solitaire implements IGame<SolitairePov> {
 
 
   recycle() {
+    this.nb_recycles++;
     return this.stock.recycle()
   }
 
   undo_recycle(data: RecycleData) {
+    this.nb_recycles--;
     this.stock.undo_recycle(data)
   }
 
@@ -779,6 +799,11 @@ export class FoundationToTableu extends IMove<SolitairePov, Solitaire> {
 
 export class StockPov {
 
+  pov_hit_stock(cards: string[]) {
+    this.waste.remove_cards(cards.length)
+    this.waste.add_cards(cards)
+  }
+
   get can_hit() {
     return this.stock.length > 0
   }
@@ -862,7 +887,15 @@ export class StockPov {
 
 }
 
+
+
+
 export class TableuPov {
+
+  pov_flip(flip: string) {
+    this.front.remove_cards(1)
+    this.front.add_cards([flip])
+  }
 
   get clone() {
     return new TableuPov(
@@ -892,7 +925,13 @@ export class TableuPov {
     if (!top) {
       return false
     }
-    return true
+
+
+    if (this.front.length > 0) {
+      return is_red_black(top, this.front.top_card)
+    } else {
+      return is_king(top)
+    }
   }
 
 
@@ -960,6 +999,7 @@ export class SolitairePov implements IGamePov {
   get clone(): SolitairePov {
     return new SolitairePov(
       this.settings,
+      this.nb_recycles,
       this.stock.clone,
       this.tableus.map(_ => _.clone),
       this.foundations.map(_ => _.clone))
@@ -1032,14 +1072,28 @@ export class SolitairePov implements IGamePov {
     this.stock.undo_recycle(data)
   }
 
-  nb_recycles = 0
-
   constructor(
     readonly settings: Settings,
+    public nb_recycles: number,
     readonly stock: StockPov,
     readonly tableus: Array<TableuPov>,
     readonly foundations: Array<Foundation>) {}
 
+  finalize_apply_pov(res: IMove<this, IGame<this>>) {
+    if (res instanceof TableuToTableu && res.res.flip) {
+        let { from } = res.data
+
+        this.tableus[from].pov_flip(res.res.flip)
+    }
+    if (res instanceof TableuToFoundation && res.res.flip) {
+      let { from } = res.data
+
+       this.tableus[from].pov_flip(res.res.flip)
+    }
+    if (res instanceof HitStock) {
+      this.stock.pov_hit_stock(res.data.cards)
+    }
+  }
 
   tableu_to_tableu(data: TableuToTableuData) {
     let { from, to, i } = data

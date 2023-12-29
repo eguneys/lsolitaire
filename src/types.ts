@@ -18,6 +18,29 @@ export const card_sort_key = (card: Card) => {
   return i_suit * 100 + i_rank
 }
 
+export type CardColor = 'red' | 'black'
+
+export function card_color(card: Card) {
+  switch (card[0]) {
+    case 'd': case 'h': return 'red'
+    default: return 'black'
+  }
+}
+
+export function is_red_black(a: Card, b: Card) {
+  return card_color(a) != card_color(b)
+}
+
+export function is_king(a: Card) {
+  return a[1] === 'K'
+}
+
+export function is_ace(a: Card) {
+  return a[1] === 'A'
+}
+
+
+
 export class Cards {
   static get deck() { return cards.slice(0) }
 }
@@ -94,6 +117,7 @@ export const hidden_card = '??'
 
 
 export class StackPov {
+  
   static from_fen = (fen: string) => new StackPov(fen === '' ? [] : fen.split(' '))
 
   static backs = (nb: number) => new StackPov([...Array(nb).keys()].map(_ => hidden_card))
@@ -108,6 +132,10 @@ export class StackPov {
 
   get length() {
     return this.cards.length
+  }
+
+  get top_card() {
+    return this.cards[this.cards.length - 1]
   }
 
   constructor(readonly cards: Array<CardPov>) {}
