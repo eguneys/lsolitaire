@@ -220,6 +220,11 @@ export class Foundation {
     return this.foundation.top_card?.[0]
   }
 
+
+  get is_finished() {
+    return this.foundation.length === 13
+  }
+
   constructor(readonly foundation: Stack) {}
   get next_top() {
     if (!this.suit) {
@@ -650,6 +655,22 @@ export class WasteToFoundation extends IMove<SolitairePov, Solitaire> {
   res!: WasteToFoundationDataRes
 
 
+  static auto_can = (pov: SolitairePov, data: { tableu: number }) => {
+
+    let { tableu } = data
+
+
+    for (let to = 0; to < 4; to++) {
+      if (WasteToFoundation.can(pov, { to })) {
+        return { to}
+      }
+    }
+    return undefined
+  }
+
+
+
+
   static can = (pov: SolitairePov, data: WasteToFoundationData) => {
     let from = data
     const can_from = pov.can_drag_waste
@@ -707,6 +728,19 @@ export class TableuToFoundation extends IMove<SolitairePov, Solitaire> {
 
   res!: TableuToFoundationDataRes
 
+  static auto_can = (pov: SolitairePov, data: { tableu: number }) => {
+
+    let { tableu } = data
+
+
+    for (let to = 0; to < 4; to++) {
+      if (TableuToFoundation.can(pov, { from: tableu, to })) {
+        return { from: tableu, to}
+      }
+    }
+    return undefined
+  }
+
   static can =(pov: SolitairePov, data: TableuToFoundationData) => {
     let from = data
     const can_from = pov.can_drag_tableu({ ...data, i: 1 })
@@ -735,9 +769,6 @@ export class TableuToFoundation extends IMove<SolitairePov, Solitaire> {
   undo_pov(pov: SolitairePov) {
     pov.undo_tableu_to_foundation(this.data, this.res)
   }
-
-
-
 }
 
 
@@ -1023,6 +1054,10 @@ export class SolitairePov implements IGamePov {
 
   get can_recycle() {
     return this.has_recycle_limit && this.stock.can_recycle
+  }
+
+  get is_finished() {
+    return this.foundations.every(_ => _.is_finished)
   }
 
   can_drag_tableu(data: FromTableuData) {
