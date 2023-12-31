@@ -655,11 +655,7 @@ export class WasteToFoundation extends IMove<SolitairePov, Solitaire> {
   res!: WasteToFoundationDataRes
 
 
-  static auto_can = (pov: SolitairePov, data: { tableu: number }) => {
-
-    let { tableu } = data
-
-
+  static auto_can = (pov: SolitairePov) => {
     for (let to = 0; to < 4; to++) {
       if (WasteToFoundation.can(pov, { to })) {
         return { to}
