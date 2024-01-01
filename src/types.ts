@@ -94,12 +94,15 @@ export class Stack {
     this.cards.push(...cards)
   }
 
-  unshift_cards(cards: Array<Card>) {
-    for (let i = cards.length - 1; i >= 0; i--) {
-      this.cards.push(cards[i])
-    }
+  shift_cards(length: number) {
+    return this.cards.splice(0, length)
   }
 
+  unshift_cards(cards: Array<Card>) {
+    for (let i = cards.length - 1; i >= 0; i--) {
+      this.cards.unshift(cards[i])
+    }
+  }
   remove_cards(n: number) {
     return this.cards.splice(-n)
   }
@@ -117,8 +120,7 @@ export const hidden_card = '??'
 
 
 export class StackPov {
-  
-  static from_fen = (fen: string) => new StackPov(fen === '' ? [] : fen.split(' '))
+    static from_fen = (fen: string) => new StackPov(fen === '' ? [] : fen.split(' '))
 
   static backs = (nb: number) => new StackPov([...Array(nb).keys()].map(_ => hidden_card))
 
@@ -146,6 +148,12 @@ export class StackPov {
       this.cards.push(cards[i])
     }
   }
+
+  shift_cards(length: number) {
+    return this.cards.splice(0, length)
+  }
+  
+
 
   add_cards(cards: Array<CardPov>) {
     this.cards.push(...cards)

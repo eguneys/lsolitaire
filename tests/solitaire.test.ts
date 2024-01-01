@@ -5,14 +5,88 @@ import { HitStock } from '../src'
 
 
 let settings: Settings = { cards: 'threecards', limit: 'nolimit' }
+
+
+it ('undoes more', () => {
+
+  let s = Solitaire.make(settings, Cards.deck)
+
+  s.hit_stock()
+  s.hit_stock()
+  s.hit_stock()
+  
+
+  let first = s.hit_stock()
+
+  s.undo_hit_stock(first)
+
+  let second = s.hit_stock()
+
+  expect(first).toStrictEqual(second)
+
+
+})
+
+
+
+it ('undoes', () => {
+
+  let s = Solitaire.make(settings, Cards.deck)
+
+  s.hit_stock()
+  
+
+  let first = s.hit_stock()
+
+  s.undo_hit_stock(first)
+
+  let second = s.hit_stock()
+
+  expect(first).toStrictEqual(second)
+
+
+})
+
+it('undo recycles', () => {
+
+  let s = Solitaire.make(settings, Cards.deck)
+
+
+  let first = s.hit_stock()
+
+  for (let i = 0; i < 7; i++) {
+    s.hit_stock()
+  }
+
+  console.log(s.stock)
+  let rr = s.recycle()
+
+  console.log(s.stock)
+  s.undo_recycle(rr)
+
+  console.log(s.stock)
+  s.recycle()
+
+  console.log(s.stock)
+  let second = s.hit_stock()
+
+  expect(first).toStrictEqual(second)
+
+})
+
+
+
 it('recycles', () => {
 
   let s = Solitaire.make(settings, Cards.deck)
 
+
   let first = s.hit_stock()
+
   for (let i = 0; i < 7; i++) {
     s.hit_stock()
   }
+
   s.recycle()
   let second = s.hit_stock()
 

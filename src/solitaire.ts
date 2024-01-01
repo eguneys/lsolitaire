@@ -105,7 +105,7 @@ export class Stock {
   undo_hit(data: HitStockData) {
     let { cards, waste } = data
     let waste_to_stock = this.waste.remove_cards(cards.length)
-    let hidden_to_waste = this.hidden.remove_cards(waste.length)
+    let hidden_to_waste = this.hidden.shift_cards(waste.length)
 
     this.waste.add_cards(hidden_to_waste)
     this.stock.add_cards(waste_to_stock)
@@ -113,8 +113,8 @@ export class Stock {
 
   recycle() {
     let waste = this.waste.remove_all()
-    this.hidden.add_cards(waste)
-    this.stock.unshift_cards(this.hidden.remove_all())
+    this.hidden.unshift_cards(waste)
+    this.stock.add_cards(this.hidden.remove_all())
 
     return {
       waste
@@ -124,7 +124,7 @@ export class Stock {
   undo_recycle(args: RecycleData) {
     let { waste } = args
     this.hidden.add_cards(this.stock.remove_all())
-    let hidden_to_waste = this.hidden.remove_cards(waste.length)
+    let hidden_to_waste = this.hidden.shift_cards(waste.length)
     this.waste.add_cards(hidden_to_waste)
   }
 
@@ -886,7 +886,7 @@ export class StockPov {
   undo_hit(data: HitStockData) {
     let { cards, waste } = data
     this.waste.remove_cards(cards.length)
-    this.hidden.remove_cards(waste.length)
+    this.hidden.shift_cards(waste.length)
 
     this.waste.add_cards(waste)
     this.stock.add_cards(cards)
@@ -895,8 +895,8 @@ export class StockPov {
 
   recycle() {
     let waste = this.waste.remove_all()
-    this.hidden.add_cards(waste)
-    this.stock.unshift_cards(this.hidden.remove_all())
+    this.hidden.unshift_cards(waste)
+    this.stock.add_cards(this.hidden.remove_all())
 
     return {
       waste
@@ -906,7 +906,7 @@ export class StockPov {
   undo_recycle(args: RecycleData) {
     let { waste } = args
     this.hidden.add_cards(this.stock.remove_all())
-    let hidden_to_waste = this.hidden.remove_cards(waste.length)
+    let hidden_to_waste = this.hidden.shift_cards(waste.length)
     this.waste.add_cards(hidden_to_waste)
   }
 
