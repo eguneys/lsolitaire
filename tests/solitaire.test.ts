@@ -58,16 +58,12 @@ it('undo recycles', () => {
     s.hit_stock()
   }
 
-  console.log(s.stock)
   let rr = s.recycle()
 
-  console.log(s.stock)
   s.undo_recycle(rr)
 
-  console.log(s.stock)
   s.recycle()
 
-  console.log(s.stock)
   let second = s.hit_stock()
 
   expect(first).toStrictEqual(second)

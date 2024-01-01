@@ -75,7 +75,7 @@ export class Stock {
   }
 
   get can_recycle() {
-    return this.stock.length === 0
+    return this.stock.length === 0 && (this.waste.length + this.hidden.length) > 0
   }
 
   from_waste() {
@@ -836,7 +836,7 @@ export class StockPov {
   }
 
   get can_recycle() {
-    return this.stock.length === 0
+    return this.stock.length === 0 && (this.waste.length + this.hidden.length) > 0
   }
 
 
