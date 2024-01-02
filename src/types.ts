@@ -27,6 +27,10 @@ export function card_color(card: Card) {
   }
 }
 
+export function is_descending(a: Card, b: Card) {
+  return ranks_ace_through_king[ranks_ace_through_king.indexOf(b[1]) - 1] === a[1]
+}
+
 export function is_red_black(a: Card, b: Card) {
   return card_color(a) != card_color(b)
 }

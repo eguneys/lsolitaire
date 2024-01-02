@@ -1,4 +1,4 @@
-import { suits, Suit, ranks_ace_through_king, is_red_black, is_king, is_ace } from './types'
+import { suits, Suit, ranks_ace_through_king, is_red_black, is_king, is_ace, is_descending } from './types'
 import { Card, Stack, StackPov } from './types'
 import { IGamePov, IGame, IMove } from './game'
 
@@ -955,7 +955,7 @@ export class TableuPov {
 
 
     if (this.front.length > 0) {
-      return is_red_black(top, this.front.top_card)
+      return is_red_black(top, this.front.top_card) && is_descending(top, this.front.top_card)
     } else {
       return is_king(top)
     }
